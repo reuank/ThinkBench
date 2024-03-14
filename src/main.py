@@ -49,70 +49,6 @@ class NumpyEncoder(json.JSONEncoder):
             return float(obj)
 
 
-lmql_answers = ["C", "B", "B", "D", "B", "B", "C", "C", "A", "A", "C", "A", "B", "D", "D", "A", "C", "D", "B",
-                        "D", "B", "B", "A", "C", "B", "B", "B", "B", "C", "B", "D", "C", "C", "C", "B", "B", "B", "D",
-                        "C", "C", "C", "B", "C", "D", "B", "B", "C", "C", "B", "B", "D", "C", "B", "C", "B", "B", "D",
-                        "A", "D", "B", "B", "B", "D", "C", "C", "A", "B", "D", "B", "A", "D", "C", "B", "D", "B", "C",
-                        "B", "B", "B", "A", "D", "C", "B", "D", "C", "D", "A", "B", "B", "C", "A", "D", "C", "A", "B",
-                        "B", "C", "A", "A", "B", "C", "C", "A", "C", "B", "A", "D", "B", "D", "D", "C", "A", "C", "A",
-                        "B", "D", "C", "C", "B", "C", "A", "B", "B", "A", "A", "D", "B", "B", "B", "D", "D", "B", "C",
-                        "B", "B", "B", "B", "B", "A", "A", "D", "C", "C", "B", "A", "C", "B", "C", "C", "A", "D", "D",
-                        "B", "C", "B", "B", "B", "C", "B", "C", "D", "D", "C", "B", "A", "A", "B", "B", "D", "D", "A",
-                        "D", "C", "C", "D", "B", "C", "D", "A", "C", "A", "D", "B", "C", "A", "A", "D", "B", "C", "D",
-                        "B", "C", "A", "D", "B", "A", "B", "B", "B", "C", "A", "C", "A", "C", "C", "B", "A", "A", "C",
-                        "C", "C", "B", "C", "A", "B", "B", "D", "A", "C", "B", "A", "C", "C", "A", "C", "A", "C", "B",
-                        "B", "B", "B", "A", "C", "B", "C", "B", "C", "B", "B", "C", "D", "D", "A", "A", "B", "C", "C",
-                        "C", "B", "C", "D", "A", "D", "C", "D", "B", "D", "D", "C", "B", "B", "D", "B", "B", "B", "C",
-                        "A", "C", "B", "D", "C", "B", "C", "B", "D", "B", "C", "C", "D", "B", "B", "B", "A", "B", "B",
-                        "B", "C", "A", "B", "C", "D", "B", "A", "B", "A", "B", "C", "C", "B", "B", "C", "B", "B", "A",
-                        "A", "B", "D", "B", "C", "C", "B", "A", "B", "B", "B", "B", "B", "C", "B", "D", "B", "C", "A",
-                        "B", "A", "C", "B", "D", "B", "B", "B", "C", "B", "B", "C", "B", "B", "B", "B", "D", "D", "B",
-                        "B", "A", "C", "B", "D", "C", "A", "B", "C", "B", "D", "B", "D", "D", "B", "B", "B", "B", "B",
-                        "A", "B", "A", "C", "A", "D", "A", "A", "D", "A", "B", "C", "C", "C", "D", "B", "B", "C", "D",
-                        "C", "C", "C", "A", "B", "B", "D", "A", "B", "C", "C", "D", "B", "D", "C", "C", "B", "B", "C",
-                        "C", "B", "A", "C", "D", "B", "A", "A", "B", "B", "A", "B", "C", "B", "B", "B", "D", "A", "B",
-                        "D", "B", "C", "A", "B", "B", "B", "B", "B", "B", "A", "B", "A", "C", "A", "A", "B", "A", "B",
-                        "B", "C", "C", "D", "B", "B", "C", "B", "D", "C", "C", "B", "D", "B", "B", "C", "D", "A", "B",
-                        "D", "C", "C", "D", "D", "B", "B", "C", "D", "B", "B", "B", "A", "C", "D", "D", "C", "B", "A",
-                        "B", "B", "D", "A", "C", "A", "C", "A", "B", "D", "D", "C", "B", "B", "A", "B", "A", "D", "B",
-                        "C", "D", "B", "B", "A", "A", "A", "C", "A", "D", "B", "B", "A", "B", "D", "B", "B", "B", "A",
-                        "D", "D", "C", "B", "D", "B", "B", "C", "A", "C", "A", "C", "B", "D", "B", "B", "B", "B", "C",
-                        "C", "C", "C", "B", "A", "B", "B", "A", "C", "C", "C", "C", "A", "B", "A", "C", "C", "B", "D",
-                        "C", "C", "D", "A", "D", "D", "A", "D", "B", "C", "A", "B", "A", "B", "C", "A", "C", "B", "B",
-                        "C", "A", "B", "D", "B", "C", "B", "C", "B", "B", "C", "A", "B", "B", "A", "B", "B", "B", "C",
-                        "D", "B", "A", "C", "B", "C", "A", "B", "B", "B", "B", "B", "D", "A", "D", "C", "B", "B", "D",
-                        "B", "B", "B", "B", "B", "D", "A", "C", "B", "B", "B", "C", "B", "B", "B", "B", "C", "D", "B",
-                        "A", "C", "D", "B", "A", "B", "B", "C", "B", "C", "A", "B", "C", "B", "C", "C", "B", "A", "B",
-                        "D", "B", "B", "A", "A", "C", "C", "C", "B", "D", "C", "B", "C", "A", "C", "C", "C", "A", "C",
-                        "B", "A", "B", "C", "C", "B", "C", "B", "B", "A", "C", "B", "C", "C", "D", "D", "B", "D", "C",
-                        "A", "B", "C", "A", "B", "B", "B", "B", "A", "D", "C", "B", "C", "B", "B", "C", "C", "C", "C",
-                        "D", "B", "C", "A", "C", "B", "A", "A", "C", "B", "B", "B", "D", "B", "B", "C", "B", "D", "B",
-                        "A", "B", "C", "B", "D", "C", "D", "A", "C", "A", "C", "C", "D", "B", "B", "D", "C", "C", "B",
-                        "D", "A", "D", "C", "D", "D", "B", "A", "C", "A", "D", "C", "C", "B", "C", "C", "B", "D", "B",
-                        "B", "D", "B", "A", "B", "A", "D", "D", "B", "A", "C", "B", "C", "B", "C", "A", "A", "B", "B",
-                        "A", "C", "B", "B", "A", "D", "D", "A", "A", "C", "B", "C", "D", "C", "B", "D", "A", "B", "A",
-                        "B", "C", "D", "C", "C", "A", "C", "B", "C", "C", "B", "D", "A", "A", "C", "B", "B", "A", "B",
-                        "B", "B", "B", "D", "A", "D", "D", "B", "B", "C", "D", "B", "D", "B", "B", "B", "B", "B", "C",
-                        "D", "A", "D", "B", "C", "A", "C", "B", "B", "B", "D", "B", "B", "D", "A", "C", "B", "A", "B",
-                        "C", "C", "D", "A", "A", "C", "B", "D", "C", "B", "B", "A", "C", "A", "B", "D", "D", "C", "C",
-                        "D", "A", "C", "D", "B", "B", "B", "D", "B", "B", "B", "A", "B", "C", "A", "B", "B", "C", "B",
-                        "B", "B", "D", "A", "D", "A", "A", "B", "B", "B", "B", "C", "D", "C", "B", "C", "D", "D", "A",
-                        "A", "D", "C", "D", "B", "C", "D", "D", "B", "C", "A", "B", "B", "B", "B", "C", "D", "A", "B",
-                        "A", "D", "B", "B", "D", "C", "C", "B", "C", "B", "C", "C", "B", "A", "A", "B", "C", "D", "C",
-                        "C", "B", "C", "B", "C", "B", "C", "D", "D", "C", "C", "B", "B", "B", "D", "B", "B", "B", "C",
-                        "A", "A", "D", "D", "D", "A", "D", "D", "B", "B", "A", "B", "D", "B", "D", "B", "A", "D", "C",
-                        "B", "C", "B", "B", "B", "B", "C", "B", "D", "B", "C", "C", "A", "C", "C", "A", "B", "D", "C",
-                        "C", "A", "D", "B", "B", "B", "D", "B", "D", "A", "B", "D", "D", "C", "D", "D", "D", "C", "B",
-                        "C", "C", "C", "A", "D", "B", "D", "D", "D", "A", "D", "C", "C", "B", "B", "B", "B", "C", "C",
-                        "D", "C", "C", "B", "B", "B", "C", "A", "B", "C", "A", "B", "B", "A", "D", "B", "D", "B", "C",
-                        "D", "D", "C", "D", "C", "D", "B", "B", "C", "B", "B", "B", "C", "D", "B", "B", "A", "D", "C",
-                        "A", "D", "A", "C", "D", "A", "B", "C", "C", "B", "C", "D", "D", "B", "B", "C", "D", "D", "B",
-                        "C", "C", "B", "B", "D", "B", "C", "C", "D", "C", "B", "D", "B", "D", "D", "B", "A", "B", "C",
-                        "A", "B", "B", "C", "C", "C", "C", "C", "B", "A", "C", "B", "B", "A", "D", "B", "C", "B", "C",
-                        "C", "D", "C", "B", "B", "C", "B", "D", "B", "B", "D", "B", "D", "B", "C", "B", "A", "C", "A",
-                        "B", "D", "A", "B", "C", "D", "C", "B", "C", "A", "A", "D", "B"]
-
-
 def test_baseline(max_questions: int = -1, log_result: bool = True):
     start_time = time.time()
 
@@ -120,7 +56,6 @@ def test_baseline(max_questions: int = -1, log_result: bool = True):
     current_accuracy = 0
     results = []
     accuracies = []
-    mismatches_with_lmql = []
     num_questions = len(dataset['id']) if max_questions == -1 else max_questions
 
     for question_id, question in enumerate(tqdm(dataset['question'][:num_questions])):
@@ -131,9 +66,6 @@ def test_baseline(max_questions: int = -1, log_result: bool = True):
         labels = choices['label']  # [A, B, C, D]
         answers = choices['text']
         correct_answer = dataset['answerKey'][question_id]
-
-        # keys_string = "[" + ", ".join(f"\"{key}\"" for key in keys) + "]"
-        # prompt_tokens = model.tokenize(bytes(non_cot_decision_prompt(question, labels, answers)))
 
         prompt = non_cot_decision_prompt(question, labels, answers)
 
@@ -191,17 +123,6 @@ def test_baseline(max_questions: int = -1, log_result: bool = True):
             )
         )
 
-        # if model_choice.strip() != lmql_answers[question_id]:  # Remove leading and trailing whitespace from model_choice
-        #     mismatches_with_lmql.append({
-        #         "question_id": question_id,
-        #         "question": question,
-        #         "answers": answers,
-        #         "labels": labels,
-        #         "model_choice": model_choice,
-        #         "lmql_answers": lmql_answers[question_id],
-        #         "top_logprobs": response['choices'][0]['logprobs']['top_logprobs'][0]
-        #     })
-
         current_accuracy = round(correct_counter * 100/(question_id+1), 2)
         accuracies.append(current_accuracy)
 
@@ -221,17 +142,10 @@ def test_baseline(max_questions: int = -1, log_result: bool = True):
         accuracies=accuracies
     )
 
-    # print(json.dumps(test_result, cls=TestResultEncoder, indent=4))
-    # print(mismatches_with_lmql)
-
     if log_result:
         f = open(f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_{num_questions}_{model_filename}.json", "a")
         f.write(json.dumps(test_result, cls=NumpyEncoder, indent=4))
         f.close()
-
-        #f = open(f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_mismatches_{model_filename}.json", "a")
-        #f.write(json.dumps(mismatches_with_lmql, cls=NumpyEncoder, indent=4))
-        #f.close()
 
     print(f"Execution took {round(time.time() - start_time, 2)} seconds.")
     print(f"Total accuracy: {current_accuracy} %.")
