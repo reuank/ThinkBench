@@ -2,6 +2,7 @@ import datetime
 import time
 import os
 import json
+import requests
 from llama_cpp.llama_tokenizer import LlamaHFTokenizer
 from numpy import float32
 from llama_cpp import Llama, LlamaGrammar, CreateCompletionResponse
@@ -63,7 +64,7 @@ class NumpyEncoder(json.JSONEncoder):
             return float(obj)
 
 
-def test_baseline(max_questions: int = -1, log_result: bool = True):
+def test_baseline_in_process(max_questions: int = -1, log_result: bool = True):
     start_time = time.time()
 
     correct_counter = 0
@@ -90,34 +91,6 @@ def test_baseline(max_questions: int = -1, log_result: bool = True):
             grammar=get_llama_grammar_from_labels(labels)
         )
 
-        # {
-        #   'id': 'cmpl-d6276de1-6c77-49bf-9eed-48d04212bb8b',
-        #   'object': 'text_completion',
-        #   'created': 1710360838,
-        #   'model': '/Users/leonknauer/code/uni/thesis/models/TheBloke/Llama-2-7B-Chat-GGUF//llama-2-7b-chat.Q4_K_M.gguf',
-        #   'choices': [{
-        #       'text': 'C',
-        #       'index': 0,
-        #       'logprobs': {
-        #           'tokens': ['C'],
-        #           'text_offset': [362],
-        #           'token_logprobs': [-14.748195],
-        #           'top_logprobs': [{
-        #               '\n': -0.03699828,
-        #               ' (': -3.3310485,
-        #               ' C': -8.365257,
-        #               '©': -9.138457,
-        #               '': -11.540381,
-        #               ' The': -11.357604,
-        #               ' Answer': -12.194313,
-        #               '2': -12.286506,
-        #               'C': -14.748195
-        #         }]
-        #      },
-        #      'finish_reason': 'stop'
-        #   }],
-        #   'usage': {'prompt_tokens': 92, 'completion_tokens': 1, 'total_tokens': 93}}
-
         model_choice = response["choices"][0]["text"]
 
         if is_equal(model_choice, correct_answer):
@@ -140,9 +113,6 @@ def test_baseline(max_questions: int = -1, log_result: bool = True):
         current_accuracy = round(correct_counter * 100/(question_id+1), 2)
         accuracies.append(current_accuracy)
 
-        # print(f"-> {counter} of {question_id + 1} correct -> Accuracy {round(counter * 100/(question_id+1), 2)}%")
-        # print("=================================================================")
-
     end_time = time.time()
 
     test_result = TestResult(
@@ -157,7 +127,84 @@ def test_baseline(max_questions: int = -1, log_result: bool = True):
     )
 
     if log_result:
-        f = open(f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_{num_questions}_{model_filename}.json", "a")
+        f = open(f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_{num_questions}_{model_filename}_in_process.json", "a")
+        f.write(json.dumps(test_result, cls=NumpyEncoder, indent=4))
+        f.close()
+
+    print(f"Execution took {round(time.time() - start_time, 2)} seconds.")
+    print(f"Total accuracy: {current_accuracy} %.")
+
+
+def test_baseline_on_server(max_questions: int = -1, log_result: bool = True):
+    global model_filename
+
+    start_time = time.time()
+
+    correct_counter = 0
+    current_accuracy = 0
+    results = []
+    accuracies = []
+    num_questions = len(dataset['id']) if max_questions == -1 else max_questions
+
+    for question_id, question in enumerate(tqdm(dataset['question'][:num_questions])):
+        choices = dataset['choices'][question_id]
+        labels = choices['label']  # [A, B, C, D]
+        answers = choices['text']
+        correct_answer = dataset['answerKey'][question_id]
+
+        prompt = non_cot_decision_prompt(question, labels, answers)
+
+        url = "http://localhost:8080/completion"
+        headers = {'content-type': 'application/json'}
+        data = {
+            "prompt": prompt,
+            "n_predict": 1,
+            "n_probs": 10,
+            "grammar": get_grammar_string_from_labels(labels)
+        }
+
+        response = requests.post(url, data=json.dumps(data), headers=headers).json()
+
+        model_choice = response["content"]
+
+        if is_equal(model_choice, correct_answer):
+            correct_counter += 1
+
+        results.append(
+            SingleResult(
+                question_id=question_id,
+                question=question,
+                answers=answers,
+                labels=labels,
+                prompt=prompt,
+                model_choice=model_choice,
+                correct_answer=correct_answer,
+                is_correct=is_equal(model_choice, correct_answer),
+                top_logprobs=response["completion_probabilities"]
+            )
+        )
+
+        current_accuracy = round(correct_counter * 100/(question_id+1), 2)
+        accuracies.append(current_accuracy)
+
+    end_time = time.time()
+
+    model_path = response["generation_settings"]["model"]
+    model_filename = os.path.basename(os.path.normpath(model_path))
+
+    test_result = TestResult(
+        model=model_filename,
+        start_time=start_time,
+        end_time=end_time,
+        execution_seconds=round(time.time() - start_time, 2),
+        total_accuracy=current_accuracy,
+        prompt_template=non_cot_decision_prompt("[Q]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"]),
+        results=results,
+        accuracies=accuracies
+    )
+
+    if log_result:
+        f = open(f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_{num_questions}_{model_filename}_on_server.json", "a")
         f.write(json.dumps(test_result, cls=NumpyEncoder, indent=4))
         f.close()
 
@@ -172,13 +219,15 @@ def is_equal(answer: str, reference: str):
 
 
 def get_llama_grammar_from_labels(labels: [str]) -> LlamaGrammar:
-    labels_with_quotes = list(map(lambda label: f'"{label}"', labels))
-
     return LlamaGrammar.from_string(
-        grammar=f"root   ::= [ ]? option \n"  # Accept single leading space
-                f"option ::= ({'|'.join(labels_with_quotes) })",
+        grammar=get_grammar_string_from_labels(labels),
         verbose=False
     )
+
+def get_grammar_string_from_labels(labels: [str]) -> str:
+    labels_with_quotes = list(map(lambda label: f'"{label}"', labels))
+
+    return f"root   ::= [ ]? option \noption ::= ({'|'.join(labels_with_quotes) })"
 
 
 def non_cot_decision_prompt(question: str, labels: [str], answers: [str]) -> str: # TODO: Make prompt model specific
@@ -197,12 +246,17 @@ def run_all_baselines():
 
     for model_name in models:
         load_model(model_name)
-        test_baseline(max_questions=-1, log_result=True)
+        test_baseline_in_process(max_questions=-1, log_result=True)
 
 
-def run_single_baseline(model_name: str, max_questions=1, log_result=True):
+def run_single_baseline_in_process(model_name: str, max_questions=1, log_result=True):
     load_model(model_name)
-    test_baseline(max_questions=max_questions, log_result=log_result)
+    test_baseline_in_process(max_questions=max_questions, log_result=log_result)
+
+
+def run_single_baseline_on_server(max_questions=1, log_result=True):
+    # TODO: Instantiate Backend
+    test_baseline_on_server(max_questions=max_questions, log_result=log_result)
 
 
 def load_model(model_name: str):
@@ -240,21 +294,24 @@ def load_model(model_name: str):
         tokenizer=tokenizer,
         verbose=False
     )
+
     print(f"Model {model_filename} loaded.")
 
 
 if __name__ == '__main__':
     dataset = load_dataset(
         path="ai2_arc",
-        name="ARC-Challenge"  # ,
-        # split="test",
+        name="ARC-Challenge",
+        split="test"
         # num_proc=8,
         # keep_in_memory=True
     )
-    dataset = dataset["test"]
+
     print("Dataset loaded")  # TODO: Improve dataset load time (why faster in first draft?)
 
     model: Llama
     model_filename: str
 
-    run_single_baseline(model_name="llama-2-7b-chat", max_questions=1, log_result=True) # TODO: Add test run comment
+    #run_single_baseline_in_process(model_name="llama-2-7b-chat", max_questions=100, log_result=True) # TODO: Add test run comment
+    run_single_baseline_on_server(max_questions=100, log_result=True) # TODO: Add test run comment
+
