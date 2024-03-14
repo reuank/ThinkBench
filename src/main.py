@@ -38,8 +38,9 @@ class TestResult(TypedDict):
     end_time: float
     execution_seconds: float
     total_accuracy: float
-    accuracies: List[float]
+    prompt_template: str
     results: List[SingleResult]
+    accuracies: List[float]
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -116,6 +117,7 @@ def test_baseline(max_questions: int = -1, log_result: bool = True):
     start_time = time.time()
 
     correct_counter = 0
+    current_accuracy = 0
     results = []
     accuracies = []
     mismatches_with_lmql = []
@@ -200,7 +202,8 @@ def test_baseline(max_questions: int = -1, log_result: bool = True):
         #         "top_logprobs": response['choices'][0]['logprobs']['top_logprobs'][0]
         #     })
 
-        accuracies.append(round(correct_counter * 100/(question_id+1), 2))
+        current_accuracy = round(correct_counter * 100/(question_id+1), 2)
+        accuracies.append(current_accuracy)
 
         # print(f"-> {counter} of {question_id + 1} correct -> Accuracy {round(counter * 100/(question_id+1), 2)}%")
         # print("=================================================================")
@@ -212,24 +215,26 @@ def test_baseline(max_questions: int = -1, log_result: bool = True):
         start_time=start_time,
         end_time=end_time,
         execution_seconds=round(time.time() - start_time, 2),
-        total_accuracy=round(correct_counter * 100/(question_id+1), 2),
-        accuracies=accuracies,
-        results=results
+        total_accuracy=current_accuracy,
+        prompt_template=non_cot_decision_prompt("[Q]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"]),
+        results=results,
+        accuracies=accuracies
     )
 
     # print(json.dumps(test_result, cls=TestResultEncoder, indent=4))
     # print(mismatches_with_lmql)
 
     if log_result:
-        f = open(f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_{model_filename}.json", "a")
+        f = open(f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_{num_questions}_{model_filename}.json", "a")
         f.write(json.dumps(test_result, cls=NumpyEncoder, indent=4))
         f.close()
 
-        f = open(f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_mismatches_{model_filename}.json", "a")
-        f.write(json.dumps(mismatches_with_lmql, cls=NumpyEncoder, indent=4))
-        f.close()
+        #f = open(f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_mismatches_{model_filename}.json", "a")
+        #f.write(json.dumps(mismatches_with_lmql, cls=NumpyEncoder, indent=4))
+        #f.close()
 
     print(f"Execution took {round(time.time() - start_time, 2)} seconds.")
+    print(f"Total accuracy: {current_accuracy} %.")
 
 
 def is_equal(answer: str, reference: str):
