@@ -1,20 +1,34 @@
 import datetime
-
-from numpy import float32
-
-from llama_cpp import Llama, LlamaGrammar, CreateCompletionResponse
-from datasets import load_dataset
-from huggingface_hub import hf_hub_download
 import time
 import os
 import json
-from typing import Any, List, Optional, Dict, Union
-from typing_extensions import TypedDict, NotRequired, Literal
+from llama_cpp.llama_tokenizer import LlamaHFTokenizer
+from numpy import float32
+from llama_cpp import Llama, LlamaGrammar, CreateCompletionResponse
+from datasets import load_dataset
+from huggingface_hub import hf_hub_download
+from typing import List, Dict
+from typing_extensions import TypedDict
 from tqdm import tqdm
 
 models = {
     "llama-2-7b-chat": {
         "hf-repo": "TheBloke/Llama-2-7B-Chat-GGUF"
+    },
+    "llama-2-13b-chat": {
+        "hf-repo": "TheBloke/Llama-2-13B-Chat-GGUF"
+    },
+    "phi-2": {
+        "hf-repo": "TheBloke/Phi-2-GGUF",
+        "hf-tokenizer": "microsoft/phi-2",
+        "keywords": { # TODO: Implement Keywords
+            "begin_question": "Instruct:",
+            "model_handoff": "Output:"
+        }
+    },
+    "mistral-7b-instruct-v0.2": {
+        "hf-repo": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
+        "hf-tokenizer": "mistralai/Mistral-7B-Instruct-v0.2"
     }
 }
 
@@ -167,7 +181,7 @@ def get_llama_grammar_from_labels(labels: [str]) -> LlamaGrammar:
     )
 
 
-def non_cot_decision_prompt(question: str, labels: [str], answers: [str]) -> str:
+def non_cot_decision_prompt(question: str, labels: [str], answers: [str]) -> str: # TODO: Make prompt model specific
     options = ""
 
     for label_id, label in enumerate(labels):
@@ -178,10 +192,23 @@ def non_cot_decision_prompt(question: str, labels: [str], answers: [str]) -> str
            f"Among {labels[0]} through {labels[-1]}, the answer is: "
 
 
-if __name__ == '__main__':
-    selected_model = "llama-2-7b-chat"
+def run_all_baselines():
+    global model, model_filename #Todo: not use global
 
-    model_filename = f"{selected_model}.Q4_K_M.gguf"
+    for model_name in models:
+        load_model(model_name)
+        test_baseline(max_questions=-1, log_result=True)
+
+
+def run_single_baseline(model_name: str, max_questions=1, log_result=True):
+    load_model(model_name)
+    test_baseline(max_questions=max_questions, log_result=log_result)
+
+
+def load_model(model_name: str):
+    global model, model_filename  # Todo: not use global
+
+    model_filename = f"{model_name}.Q4_K_M.gguf"
     model_path = f"{model_folder_path}/{model_filename}"
 
     if not os.path.isdir(model_folder_path):
@@ -190,11 +217,19 @@ if __name__ == '__main__':
 
     if not os.path.isfile(model_path):
         hf_hub_download(
-            repo_id=models[selected_model]["hf-path"],
+            repo_id=models[model_name]["hf-repo"],
             filename=model_filename,
             local_dir=model_folder_path,
-            local_dir_use_symlinks=True
+            local_dir_use_symlinks=False
         )
+        print(f"Model {model_filename} downloaded, as it does not yet exist.")
+
+    # Load correct Tokenizer
+    if "hf-tokenizer" in models[model_name].keys():
+        tokenizer = LlamaHFTokenizer.from_pretrained(models[model_name]["hf-tokenizer"])
+        print(f"External Tokenizer {models[model_name]['hf-tokenizer']} loaded.")
+    else:
+        tokenizer = None  # Defaults to LlamaTokenizer
 
     model = Llama(
         model_path=model_path,
@@ -202,10 +237,13 @@ if __name__ == '__main__':
         n_ctx=8192,
         n_batch=1024,
         logits_all=True,
+        tokenizer=tokenizer,
         verbose=False
     )
-    print("Model loaded")
+    print(f"Model {model_filename} loaded.")
 
+
+if __name__ == '__main__':
     dataset = load_dataset(
         path="ai2_arc",
         name="ARC-Challenge"  # ,
@@ -214,6 +252,9 @@ if __name__ == '__main__':
         # keep_in_memory=True
     )
     dataset = dataset["test"]
-    print("Dataset loaded") # TODO: Improve dataset load time (why faster in first draft?)
+    print("Dataset loaded")  # TODO: Improve dataset load time (why faster in first draft?)
 
-    test_baseline(max_questions=1, log_result=True)
+    model: Llama
+    model_filename: str
+
+    run_single_baseline(model_name="llama-2-7b-chat", max_questions=1, log_result=True) # TODO: Add test run comment
