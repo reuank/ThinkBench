@@ -3,12 +3,14 @@ import time
 import os
 import json
 import requests
+import asyncio
+import aiohttp
 from llama_cpp.llama_tokenizer import LlamaHFTokenizer
 from numpy import float32
 from llama_cpp import Llama, LlamaGrammar, CreateCompletionResponse
 from datasets import load_dataset
 from huggingface_hub import hf_hub_download
-from typing import List, Dict
+from typing import List, Dict, Optional
 from typing_extensions import TypedDict
 from tqdm import tqdm
 
@@ -122,13 +124,108 @@ def test_baseline_in_process(max_questions: int = -1, log_result: bool = True):
         results=results,
     )
 
-    if log_result:
-        f = open(f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_{num_questions}_{model_filename}_in_process.json", "a")
-        f.write(json.dumps(test_result, cls=NumpyEncoder, indent=4))
-        f.close()
-
     print(f"Execution took {round(time.time() - start_time, 2)} seconds.")
     print(f"Total accuracy: {current_accuracy} %.")
+
+    if log_result:
+        filename = f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_{num_questions}_{model_filename}_in_process.json"
+        f = open(filename, "a")
+        f.write(json.dumps(test_result, cls=NumpyEncoder, indent=4))
+        f.close()
+        print(f"File {filename} written.")
+
+
+def test_baseline_on_server_async(max_questions: int = -1, log_result: bool = True, endpoint="http://localhost:8080"):
+    start_time = time.time()
+
+    num_questions = len(dataset['id']) if max_questions == -1 else max_questions
+
+    async def get_single(question_id, session, max_retries=10):
+        question = dataset['question'][question_id]
+        choices = dataset['choices'][question_id]
+        labels = choices['label']  # [A, B, C, D]
+        answers = choices['text']
+        correct_answer = dataset['answerKey'][question_id]
+
+        prompt = non_cot_decision_prompt(question, labels, answers)
+
+        url = f"{endpoint}/completion"
+        headers = {'content-type': 'application/json'}
+        data = {
+            "prompt": prompt,
+            "temperature": 0,
+            "n_predict": 1,
+            "n_probs": 10,
+            "grammar": get_grammar_string_from_labels(labels)
+        }
+
+        retries = 0
+        while retries < max_retries:
+            try:
+                async with session.post(url=url, headers=headers, json=data, raise_for_status=True) as response:
+                    response_json = await response.json()
+
+                    model_choice = response_json["content"]
+
+                    return SingleResult(
+                            question_id=question_id,
+                            question=question,
+                            answers=answers,
+                            labels=labels,
+                            prompt=prompt,
+                            model_choice=model_choice,
+                            correct_answer=correct_answer,
+                            is_correct=is_equal(model_choice, correct_answer),
+                            top_logprobs=response_json["completion_probabilities"]
+                        )
+
+            except aiohttp.ClientError as e:  # Catch HTTP errors and possibly other specific exceptions you expect
+                print(f"Attempt number {retries + 1} failed for question_id {question_id}: {e}")
+                retries += 1
+
+
+            except Exception as e:  # Catch other exceptions, you might want to handle these differently
+                print(f"Unexpected error for question_id {question_id}, not retrying: {e}")
+                break
+
+    async def get_all():
+        async with aiohttp.ClientSession() as session:
+            async_results = await asyncio.gather(
+                *(get_single(question_id, session) for question_id in range(num_questions))
+            )
+
+        return async_results
+
+    results = asyncio.run(get_all())
+
+    end_time = time.time()
+
+    server_properties = requests.get(url=f"{endpoint}/props", headers={'content-type': 'application/json'}).json()
+    model_filename = os.path.basename(os.path.normpath(server_properties["default_generation_settings"]["model"]))
+
+    num_correct = sum(map(lambda x: 1, filter(lambda result: result["is_correct"], results)))
+    total_accuracy = round((num_correct / num_questions) * 100, 2)
+
+    test_result = TestResult(
+        model=model_filename,
+        start_time=start_time,
+        end_time=end_time,
+        execution_seconds=round(time.time() - start_time, 2),
+        total_accuracy=total_accuracy,
+        prompt_template=non_cot_decision_prompt("[Q]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"]),
+        results=results,
+        server_properties=server_properties
+    )
+
+    print(f"Execution took {round(time.time() - start_time, 2)} seconds.")
+    print(f"Total accuracy: {total_accuracy} %.")
+
+    if log_result:
+        filename = f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_{num_questions}_{model_filename}_on_server_async.json"
+        f = open(filename, "a")
+        f.write(json.dumps(test_result, cls=NumpyEncoder, indent=4))
+        f.close()
+        print(f"File {filename} written.")
 
 
 def test_baseline_on_server_sequential(max_questions: int = -1, log_result: bool = True, endpoint="http://localhost:8080"):
@@ -246,7 +343,7 @@ def run_single_baseline_in_process(model_name: str, max_questions=1, log_result=
 
 def run_single_baseline_on_server(max_questions=1, log_result=True):
     # TODO: Instantiate Backend
-    test_baseline_on_server(max_questions=max_questions, log_result=log_result)
+    test_baseline_on_server_async(max_questions=max_questions, log_result=log_result)
 
 
 def load_model(model_name: str):
