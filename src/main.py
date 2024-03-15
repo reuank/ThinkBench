@@ -285,6 +285,7 @@ def load_model(model_name: str):
     else:
         tokenizer = None  # Defaults to LlamaTokenizer
 
+    start_model_load = time.time()
     model = Llama(
         model_path=model_path,
         n_gpu_layers=1000,
@@ -294,11 +295,13 @@ def load_model(model_name: str):
         tokenizer=tokenizer,
         verbose=False
     )
+    end_model_load = time.time()
 
-    print(f"Model {model_filename} loaded.")
+    print(f"Model {model_filename} loaded in {end_model_load - start_model_load} seconds.")
 
 
 if __name__ == '__main__':
+    start_dataset_load = time.time()
     dataset = load_dataset(
         path="ai2_arc",
         name="ARC-Challenge",
@@ -306,8 +309,10 @@ if __name__ == '__main__':
         # num_proc=8,
         # keep_in_memory=True
     )
+    end_dataset_load = time.time()
 
-    print("Dataset loaded")  # TODO: Improve dataset load time (why faster in first draft?)
+    # TODO: Improve dataset load time (why faster in first draft?)
+    print(f"Dataset loaded in {end_dataset_load - start_dataset_load} seconds")
 
     model: Llama
     model_filename: str
