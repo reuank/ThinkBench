@@ -56,6 +56,7 @@ class TestResult(TypedDict):
     execution_seconds: float
     total_accuracy: float
     prompt_template: str
+    comment: str
     results: List[SingleResult]
     server_properties: Optional[Dict]
 
@@ -66,7 +67,7 @@ class NumpyEncoder(json.JSONEncoder):
             return float(obj)
 
 
-def test_baseline_in_process(max_questions: int = -1, log_result: bool = True):
+def test_baseline_in_process(max_questions: int = -1, log_result: bool = True, comment: str = ""):
     start_time = time.time()
 
     correct_counter = 0
@@ -120,6 +121,7 @@ def test_baseline_in_process(max_questions: int = -1, log_result: bool = True):
         execution_seconds=round(time.time() - start_time, 2),
         total_accuracy=total_accuracy,
         prompt_template=non_cot_decision_prompt("[Q]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"]),
+        comment=comment,
         results=results,
     )
 
@@ -134,7 +136,7 @@ def test_baseline_in_process(max_questions: int = -1, log_result: bool = True):
         print(f"File {filename} written.")
 
 
-def test_baseline_on_server_async(max_questions: int = -1, log_result: bool = True, endpoint="http://localhost:8080"):
+def test_baseline_on_server_async(max_questions: int = -1, log_result: bool = True, endpoint="http://localhost:8080", comment: str = ""):
     start_time = time.time()
 
     num_questions = len(dataset['id']) if max_questions == -1 else max_questions
@@ -212,6 +214,7 @@ def test_baseline_on_server_async(max_questions: int = -1, log_result: bool = Tr
         execution_seconds=round(time.time() - start_time, 2),
         total_accuracy=total_accuracy,
         prompt_template=non_cot_decision_prompt("[Q]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"]),
+        comment=comment,
         results=results,
         server_properties=server_properties
     )
@@ -227,7 +230,7 @@ def test_baseline_on_server_async(max_questions: int = -1, log_result: bool = Tr
         print(f"File {filename} written.")
 
 
-def test_baseline_on_server_sequential(max_questions: int = -1, log_result: bool = True, endpoint="http://localhost:8080"):
+def test_baseline_on_server_sequential(max_questions: int = -1, log_result: bool = True, endpoint="http://localhost:8080", comment: str = ""):
     global model_filename
 
     start_time = time.time()
@@ -287,7 +290,8 @@ def test_baseline_on_server_sequential(max_questions: int = -1, log_result: bool
         execution_seconds=round(time.time() - start_time, 2),
         total_accuracy=total_accuracy,
         prompt_template=non_cot_decision_prompt("[Q]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"]),
-        results=results
+        comment=comment,
+        results=results,
     )
 
     print(f"Execution took {round(time.time() - start_time, 2)} seconds.")
@@ -330,12 +334,12 @@ def non_cot_decision_prompt(question: str, labels: [str], answers: [str]) -> str
            f"Among {labels[0]} through {labels[-1]}, the answer is: "
 
 
-def run_all_baselines():
+def run_all_baselines(comment: str):
     global model, model_filename  #Todo: not use global
 
     for model_name in models:
         load_model(model_name)
-        test_baseline_in_process(max_questions=-1, log_result=True)
+        test_baseline_in_process(max_questions=-1, log_result=True, comment=comment)
 
 
 def run_single_baseline_in_process(model_name: str, max_questions=1, log_result=True):
@@ -406,7 +410,7 @@ if __name__ == '__main__':
     model: Llama
     model_filename: str
 
-    run_all_baselines()
+    run_all_baselines(comment="All Baselines without Chat Template")
     #run_single_baseline_in_process(model_name="llama-2-7b-chat", max_questions=100, log_result=True) # TODO: Add test run comment
     #run_baseline_on_server(max_questions=100, log_result=True) # TODO: Add test run comment
 
