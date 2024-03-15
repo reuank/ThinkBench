@@ -55,7 +55,7 @@ class TestResult(TypedDict):
     total_accuracy: float
     prompt_template: str
     results: List[SingleResult]
-    accuracies: List[float]
+    server_properties: Optional[Dict]
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -70,7 +70,6 @@ def test_baseline_in_process(max_questions: int = -1, log_result: bool = True):
     correct_counter = 0
     current_accuracy = 0
     results = []
-    accuracies = []
     num_questions = len(dataset['id']) if max_questions == -1 else max_questions
 
     for question_id, question in enumerate(tqdm(dataset['question'][:num_questions])):
@@ -110,20 +109,17 @@ def test_baseline_in_process(max_questions: int = -1, log_result: bool = True):
             )
         )
 
-        current_accuracy = round(correct_counter * 100/(question_id+1), 2)
-        accuracies.append(current_accuracy)
-
     end_time = time.time()
 
+    total_accuracy = round(correct_counter * 100/num_questions, 2)
     test_result = TestResult(
         model=model_filename,
         start_time=start_time,
         end_time=end_time,
         execution_seconds=round(time.time() - start_time, 2),
-        total_accuracy=current_accuracy,
+        total_accuracy=total_accuracy,
         prompt_template=non_cot_decision_prompt("[Q]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"]),
         results=results,
-        accuracies=accuracies
     )
 
     if log_result:
@@ -135,15 +131,13 @@ def test_baseline_in_process(max_questions: int = -1, log_result: bool = True):
     print(f"Total accuracy: {current_accuracy} %.")
 
 
-def test_baseline_on_server(max_questions: int = -1, log_result: bool = True):
+def test_baseline_on_server_sequential(max_questions: int = -1, log_result: bool = True, endpoint="http://localhost:8080"):
     global model_filename
 
     start_time = time.time()
 
     correct_counter = 0
-    current_accuracy = 0
     results = []
-    accuracies = []
     num_questions = len(dataset['id']) if max_questions == -1 else max_questions
 
     for question_id, question in enumerate(tqdm(dataset['question'][:num_questions])):
@@ -154,7 +148,7 @@ def test_baseline_on_server(max_questions: int = -1, log_result: bool = True):
 
         prompt = non_cot_decision_prompt(question, labels, answers)
 
-        url = "http://localhost:8080/completion"
+        url = f"{endpoint}/completion"
         headers = {'content-type': 'application/json'}
         data = {
             "prompt": prompt,
@@ -184,23 +178,20 @@ def test_baseline_on_server(max_questions: int = -1, log_result: bool = True):
             )
         )
 
-        current_accuracy = round(correct_counter * 100/(question_id+1), 2)
-        accuracies.append(current_accuracy)
-
     end_time = time.time()
 
     model_path = response["generation_settings"]["model"]
     model_filename = os.path.basename(os.path.normpath(model_path))
 
+    total_accuracy = round(correct_counter * 100 / num_questions, 2)
     test_result = TestResult(
         model=model_filename,
         start_time=start_time,
         end_time=end_time,
         execution_seconds=round(time.time() - start_time, 2),
-        total_accuracy=current_accuracy,
+        total_accuracy=total_accuracy,
         prompt_template=non_cot_decision_prompt("[Q]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"]),
-        results=results,
-        accuracies=accuracies
+        results=results
     )
 
     if log_result:
@@ -210,7 +201,6 @@ def test_baseline_on_server(max_questions: int = -1, log_result: bool = True):
 
     print(f"Execution took {round(time.time() - start_time, 2)} seconds.")
     print(f"Total accuracy: {current_accuracy} %.")
-
 
 def is_equal(answer: str, reference: str):
     # TODO: define different rules for equlity
