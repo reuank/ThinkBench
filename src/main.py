@@ -8,30 +8,42 @@ import aiohttp
 from llama_cpp.llama_tokenizer import LlamaHFTokenizer
 from numpy import float32
 from llama_cpp import Llama, LlamaGrammar, CreateCompletionResponse
-from datasets import load_dataset
+import datasets
 from huggingface_hub import hf_hub_download
 from typing import List, Dict, Optional
 from typing_extensions import TypedDict
 from tqdm import tqdm
 
+llama_instruct_template = {
+    "begin_question": "<s>[INST]",
+    "model_handoff": "[/INST]"
+}
+
 models = {
     "llama-2-7b-chat": {
-        "hf-repo": "TheBloke/Llama-2-7B-Chat-GGUF"
+        "hf-repo": "TheBloke/Llama-2-7B-Chat-GGUF",
+        "template": llama_instruct_template,
+        "use_template": False
     },
     "llama-2-13b-chat": {
-        "hf-repo": "TheBloke/Llama-2-13B-Chat-GGUF"
+        "hf-repo": "TheBloke/Llama-2-13B-Chat-GGUF",
+        "template": llama_instruct_template,
+        "use_template": False
     },
     "phi-2": {
         "hf-repo": "TheBloke/Phi-2-GGUF",
         "hf-tokenizer": "microsoft/phi-2",
-        "keywords": { # TODO: Implement Keywords
+        "template": {
             "begin_question": "Instruct:",
             "model_handoff": "Output:"
-        }
+        },
+        "use_template": True
     },
     "mistral-7b-instruct-v0.2": {
         "hf-repo": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
-        "hf-tokenizer": "mistralai/Mistral-7B-Instruct-v0.2"
+        #"hf-tokenizer": "mistralai/Mistral-7B-Instruct-v0.2",
+        "template": llama_instruct_template,
+        "use_template": True
     }
 }
 
@@ -67,7 +79,7 @@ class NumpyEncoder(json.JSONEncoder):
             return float(obj)
 
 
-def test_baseline_in_process(max_questions: int = -1, log_result: bool = True, comment: str = ""):
+def test_baseline_in_process(max_questions: int = -1, log_result: bool = True, comment: str = "", template: Dict = None):
     start_time = time.time()
 
     correct_counter = 0
@@ -83,7 +95,7 @@ def test_baseline_in_process(max_questions: int = -1, log_result: bool = True, c
         answers = choices['text']
         correct_answer = dataset['answerKey'][question_id]
 
-        prompt = non_cot_decision_prompt(question, labels, answers)
+        prompt = non_cot_decision_prompt(question, labels, answers, template)
 
         response: CreateCompletionResponse = model.create_completion(
             prompt=prompt,
@@ -120,7 +132,7 @@ def test_baseline_in_process(max_questions: int = -1, log_result: bool = True, c
         end_time=end_time,
         execution_seconds=round(time.time() - start_time, 2),
         total_accuracy=total_accuracy,
-        prompt_template=non_cot_decision_prompt("[Q]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"]),
+        prompt_template=non_cot_decision_prompt("[Q]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"], template),
         comment=comment,
         results=results,
     )
@@ -129,7 +141,7 @@ def test_baseline_in_process(max_questions: int = -1, log_result: bool = True, c
     print(f"Total accuracy: {total_accuracy} %.")
 
     if log_result:
-        filename = f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_{num_questions}_{model_filename}_in_process.json"
+        filename = f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_baseline_arc_test_{num_questions}_{model_filename}_in_process.json"
         f = open(filename, "a")
         f.write(json.dumps(test_result, cls=NumpyEncoder, indent=4))
         f.close()
@@ -324,24 +336,40 @@ def get_grammar_string_from_labels(labels: [str]) -> str:
     return f"root   ::= [ ]? option \noption ::= ({'|'.join(labels_with_quotes) })"
 
 
-def non_cot_decision_prompt(question: str, labels: [str], answers: [str]) -> str: # TODO: Make prompt model specific
+def non_cot_decision_prompt(question: str, labels: [str], answers: [str], template: Dict) -> str: # TODO: Make prompt model specific
     options = ""
 
     for label_id, label in enumerate(labels):
         options += f"({label}) {answers[label_id]}\n"
 
-    return f"Question: {question} \n" \
+    if template is None:
+        template = {"begin_question": "", "model_handoff": ""}
+
+    return f"{template['begin_question']} Question: {question} \n" \
            f"Answer Choices: {options}" \
-           f"Among {labels[0]} through {labels[-1]}, the answer is: "
+           f"Among {labels[0]} through {labels[-1]}, the correct answer is: {template['model_handoff']} "\
+           # f"Among {labels[0]} through {labels[-1]}, what is the correct answer?{template['model_handoff']} "
 
 
-def run_all_baselines(comment: str):
+def run_all_baselines(max_questions: int = -1, comment: str = ""):
     global model, model_filename  #Todo: not use global
 
-    for model_name in models:
-        load_model(model_name)
-        test_baseline_in_process(max_questions=-1, log_result=True, comment=comment)
+    start_tests = time.time()
 
+    for model_name in models:
+        print("=" * 70)
+        load_model(model_name)
+        test_baseline_in_process(
+            max_questions=max_questions,
+            log_result=True,
+            comment=comment,
+            template=models[model_name]["template"] if models[model_name]["use_template"] else None
+        )
+
+    print("=" * 70)
+    end_tests = timqe.time()
+    print(f"All tests took {int((end_tests - start_tests) / 60)} minutes {int((end_tests - start_tests) % 60)} seconds.")
+    print("=" * 70)
 
 def run_single_baseline_in_process(model_name: str, max_questions=1, log_result=True):
     load_model(model_name)
@@ -391,12 +419,14 @@ def load_model(model_name: str):
     )
     end_model_load = time.time()
 
-    print(f"Model {model_filename} loaded in {end_model_load - start_model_load} seconds.")
+    print(f"Model {model_filename} loaded in {round(end_model_load - start_model_load, 2)} seconds.")
 
 
 if __name__ == '__main__':
     start_dataset_load = time.time()
-    dataset = load_dataset(
+
+    datasets.logging.set_verbosity_info()
+    dataset = datasets.load_dataset(
         path="ai2_arc",
         name="ARC-Challenge",
         split="test"
@@ -406,12 +436,12 @@ if __name__ == '__main__':
     end_dataset_load = time.time()
 
     # TODO: Improve dataset load time (why faster in first draft?)
-    print(f"Dataset loaded in {end_dataset_load - start_dataset_load} seconds")
+    print(f"Dataset loaded in {round(end_dataset_load - start_dataset_load, 2)} seconds")
 
     model: Llama
     model_filename: str
 
-    run_all_baselines(comment="All Baselines without Chat Template")
+    run_all_baselines(max_questions=-1, comment="All baselines with partially activated chat template, standard non cot prompt")
     #run_single_baseline_in_process(model_name="llama-2-7b-chat", max_questions=100, log_result=True) # TODO: Add test run comment
     #run_baseline_on_server(max_questions=100, log_result=True) # TODO: Add test run comment
 
