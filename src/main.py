@@ -279,8 +279,8 @@ def test_baseline_on_server_sequential(max_questions: int = -1, log_result: bool
 
     end_time = time.time()
 
-    model_path = response["generation_settings"]["model"]
-    model_filename = os.path.basename(os.path.normpath(model_path))
+    server_properties = requests.get(url=f"{endpoint}/props", headers={'content-type': 'application/json'}).json()
+    model_filename = os.path.basename(os.path.normpath(server_properties["default_generation_settings"]["model"]))
 
     total_accuracy = round(correct_counter * 100 / num_questions, 2)
     test_result = TestResult(
@@ -292,6 +292,7 @@ def test_baseline_on_server_sequential(max_questions: int = -1, log_result: bool
         prompt_template=non_cot_decision_prompt("[Q]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"]),
         comment=comment,
         results=results,
+        server_properties=server_properties
     )
 
     print(f"Execution took {round(time.time() - start_time, 2)} seconds.")
