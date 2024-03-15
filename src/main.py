@@ -35,7 +35,7 @@ models = {
     }
 }
 
-model_folder_path = "/Users/leonknauer/code/uni/thesis/models/TheBloke/Llama-2-7B-Chat-GGUF/" #"/home/kit/itas/ep8668/models"
+model_folder_path = "/Users/leonknauer/code/uni/thesis/models"  #"/home/kit/itas/ep8668/models"
 
 class SingleResult(TypedDict):
     question_id: int
@@ -70,7 +70,6 @@ def test_baseline_in_process(max_questions: int = -1, log_result: bool = True):
     start_time = time.time()
 
     correct_counter = 0
-    current_accuracy = 0
     results = []
     num_questions = len(dataset['id']) if max_questions == -1 else max_questions
 
@@ -125,7 +124,7 @@ def test_baseline_in_process(max_questions: int = -1, log_result: bool = True):
     )
 
     print(f"Execution took {round(time.time() - start_time, 2)} seconds.")
-    print(f"Total accuracy: {current_accuracy} %.")
+    print(f"Total accuracy: {total_accuracy} %.")
 
     if log_result:
         filename = f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_{num_questions}_{model_filename}_in_process.json"
@@ -291,13 +290,16 @@ def test_baseline_on_server_sequential(max_questions: int = -1, log_result: bool
         results=results
     )
 
+    print(f"Execution took {round(time.time() - start_time, 2)} seconds.")
+    print(f"Total accuracy: {total_accuracy} %.")
+
     if log_result:
-        f = open(f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_{num_questions}_{model_filename}_on_server.json", "a")
+        filename = f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')}_baseline_arc_test_{num_questions}_{model_filename}_on_server_sequential.json"
+        f = open(filename, "a")
         f.write(json.dumps(test_result, cls=NumpyEncoder, indent=4))
         f.close()
+        print(f"File {filename} written.")
 
-    print(f"Execution took {round(time.time() - start_time, 2)} seconds.")
-    print(f"Total accuracy: {current_accuracy} %.")
 
 def is_equal(answer: str, reference: str):
     # TODO: define different rules for equlity
@@ -329,7 +331,7 @@ def non_cot_decision_prompt(question: str, labels: [str], answers: [str]) -> str
 
 
 def run_all_baselines():
-    global model, model_filename #Todo: not use global
+    global model, model_filename  #Todo: not use global
 
     for model_name in models:
         load_model(model_name)
@@ -404,6 +406,7 @@ if __name__ == '__main__':
     model: Llama
     model_filename: str
 
+    run_all_baselines()
     #run_single_baseline_in_process(model_name="llama-2-7b-chat", max_questions=100, log_result=True) # TODO: Add test run comment
-    run_single_baseline_on_server(max_questions=100, log_result=True) # TODO: Add test run comment
+    #run_baseline_on_server(max_questions=100, log_result=True) # TODO: Add test run comment
 
