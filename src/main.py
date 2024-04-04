@@ -13,8 +13,9 @@ from huggingface_hub import hf_hub_download
 from typing import List, Dict, Optional
 from typing_extensions import TypedDict
 from tqdm import tqdm
+from string import Template
 
-llama_instruct_template = {
+llama_instruct_chat_template = {
     "begin_question": "<s>[INST]",
     "model_handoff": "[/INST]"
 }
@@ -23,49 +24,71 @@ models = {
     "orca-2-7b": { # pip3 install sentencepiece protobuf
         "hf-repo": "TheBloke/Orca-2-7B-GGUF",
         "hf-tokenizer": "microsoft/Orca-2-7b",
-        "template": {
+        "chat_template": {
             "begin_question": "<|im_start|>user\n",
             "model_handoff": "'<|im_end|>\n<|im_start|>assistant\n"
         },
-        "use_template": True
+        "use_chat_template": True
     },
     "orca-2-13b": {
         "hf-repo": "TheBloke/Orca-2-13B-GGUF",
         "hf-tokenizer": "microsoft/Orca-2-7b",
-        "template": {
+        "chat_template": {
             "begin_question": "<|im_start|>user\n",
             "model_handoff": "'<|im_end|>\n<|im_start|>assistant\n"
         },
-        "use_template": True
+        "use_chat_template": True
     },
     "llama-2-7b-chat": {
         "hf-repo": "TheBloke/Llama-2-7B-Chat-GGUF",
-        "template": llama_instruct_template,
+        "template": llama_instruct_chat_template,
         "use_template": False
     },
     "llama-2-13b-chat": {
         "hf-repo": "TheBloke/Llama-2-13B-Chat-GGUF",
-        "template": llama_instruct_template,
-        "use_template": False
+        "chat_template": llama_instruct_chat_template,
+        "use_chat_template": False
     },
     "phi-2": {
         "hf-repo": "TheBloke/Phi-2-GGUF",
         "hf-tokenizer": "microsoft/phi-2",
-        "template": {
+        "chat_template": {
             "begin_question": "Instruct:",
             "model_handoff": "Output:"
         },
-        "use_template": True
+        "use_chat_template": True
     },
     "mistral-7b-instruct-v0.2": {
         "hf-repo": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
         #"hf-tokenizer": "mistralai/Mistral-7B-Instruct-v0.2",
-        "template": llama_instruct_template,
-        "use_template": True
+        "chat_template": llama_instruct_chat_template,
+        "use_chat_template": True
+    }
+}
+
+
+prompt_templates = {
+    "non-cot-standard": {
+        "template": Template(
+            "${begin_question}Question: ${question} \n"
+            "Answer Choices: ${options}"
+            "Among ${first_label} through ${last_label}, the correct answer is: ${model_handoff} "
+        ),
+        "description": ""
+    },
+    "non-cot-explicit-instruction": {
+        "template": Template(
+            "${begin_question}Question: ${question} \n"
+            "Answer Choices: ${options}"
+            "Just answer with the correct label, without any brackets or spaces. \n"
+            "Among ${first_label} through ${last_label}, the correct answer is: ${model_handoff} "
+        ),
+        "description": ""
     }
 }
 
 model_folder_path = "/Users/leonknauer/code/uni/thesis/models"  #"/home/kit/itas/ep8668/models"
+
 
 class SingleResult(TypedDict):
     question_id: int
@@ -86,6 +109,7 @@ class TestResult(TypedDict):
     execution_seconds: float
     total_accuracy: float
     prompt_template: str
+    prompt_template_name: str
     comment: str
     results: List[SingleResult]
     server_properties: Optional[Dict]
@@ -97,23 +121,36 @@ class NumpyEncoder(json.JSONEncoder):
             return float(obj)
 
 
-def test_baseline_in_process(max_questions: int = -1, log_result: bool = True, comment: str = "", template: Dict = None):
+def benchmark_single_model_in_process(
+        model_name: str,
+        max_questions: int = -1,
+        log_result: bool = True,
+        prompt_template_name: str = "non-cot-standard",
+        chat_template: Dict = None,
+        comment: str = ""
+):
+
     start_time = time.time()
+
+    load_model(model_name)
 
     correct_counter = 0
     results = []
     num_questions = len(dataset['id']) if max_questions == -1 else max_questions
 
-    for question_id, question in enumerate(tqdm(dataset['question'][:num_questions])):
+    for question_id, question in enumerate(t := tqdm(dataset['question'][:num_questions])):
+        t.set_description("Testing model")
         if max_questions != -1 and question_id >= max_questions:
             break
 
         choices = dataset['choices'][question_id]
         labels = choices['label']  # [A, B, C, D]
         answers = choices['text']
-        correct_answer = dataset['answerKey'][question_id]
+        correct_answer = str(dataset['answerKey'][question_id])
 
-        prompt = non_cot_decision_prompt(question, labels, answers, template)
+        # Todo: Optionally change labels here, and also change correct label accordingly
+
+        prompt = fill_prompt_template(prompt_template_name, question, labels, answers, chat_template)
 
         response: CreateCompletionResponse = model.create_completion(
             prompt=prompt,
@@ -150,7 +187,8 @@ def test_baseline_in_process(max_questions: int = -1, log_result: bool = True, c
         end_time=end_time,
         execution_seconds=round(time.time() - start_time, 2),
         total_accuracy=total_accuracy,
-        prompt_template=non_cot_decision_prompt("[Q]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"], template),
+        prompt_template_name=prompt_template_name,
+        prompt_template=fill_prompt_template(prompt_template_name, "[Question]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"], chat_template),
         comment=comment,
         results=results,
     )
@@ -159,14 +197,14 @@ def test_baseline_in_process(max_questions: int = -1, log_result: bool = True, c
     print(f"Total accuracy: {total_accuracy} %.")
 
     if log_result:
-        filename = f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_baseline_arc_test_{num_questions}_{model_filename}_in_process.json"
+        filename = f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{prompt_template_name}_arc_test_{num_questions}_{model_filename}_in_process.json"
         f = open(filename, "a")
         f.write(json.dumps(test_result, cls=NumpyEncoder, indent=4))
         f.close()
         print(f"File {filename} written.")
 
 
-def test_baseline_on_server_async(max_questions: int = -1, log_result: bool = True, endpoint="http://localhost:8080", comment: str = ""):
+def benchmark_single_model_on_server_async(max_questions: int = -1, log_result: bool = True, endpoint="http://localhost:8080", comment: str = ""):
     start_time = time.time()
 
     num_questions = len(dataset['id']) if max_questions == -1 else max_questions
@@ -260,7 +298,7 @@ def test_baseline_on_server_async(max_questions: int = -1, log_result: bool = Tr
         print(f"File {filename} written.")
 
 
-def test_baseline_on_server_sequential(max_questions: int = -1, log_result: bool = True, endpoint="http://localhost:8080", comment: str = ""):
+def benchmark_single_model_on_server_sequential(max_questions: int = -1, log_result: bool = True, endpoint="http://localhost:8080", comment: str = ""):
     global model_filename
 
     start_time = time.time()
@@ -337,7 +375,7 @@ def test_baseline_on_server_sequential(max_questions: int = -1, log_result: bool
 
 
 def is_equal(answer: str, reference: str):
-    # TODO: define different rules for equlity
+    # TODO: define different rules for equality
 
     return answer.strip() == reference
 
@@ -348,10 +386,33 @@ def get_llama_grammar_from_labels(labels: [str]) -> LlamaGrammar:
         verbose=False
     )
 
+
 def get_grammar_string_from_labels(labels: [str]) -> str:
     labels_with_quotes = list(map(lambda label: f'"{label}"', labels))
 
+    # Accept only label tokens, e.g. "A", " A", ...
     return f"root   ::= [ ]? option \noption ::= ({'|'.join(labels_with_quotes) })"
+
+
+def fill_prompt_template(prompt_template_name: str, question: str, labels: [str], answers: [str], chat_template: Dict) -> str:
+    prompt_template = prompt_templates[prompt_template_name]['template']
+
+    options = ""
+
+    for label_id, label in enumerate(labels):
+        options += f"({label}) {answers[label_id]}\n"
+
+    if chat_template is None:
+        chat_template = {"begin_question": "", "model_handoff": ""}
+
+    return prompt_template.substitute(
+        begin_question=chat_template['begin_question'],
+        question=question,
+        options=options,
+        first_label=labels[0],
+        last_label=labels[-1],
+        model_handoff=chat_template['model_handoff']
+    )
 
 
 def non_cot_decision_prompt(question: str, labels: [str], answers: [str], template: Dict) -> str: # TODO: Make prompt model specific
@@ -369,34 +430,29 @@ def non_cot_decision_prompt(question: str, labels: [str], answers: [str], templa
            # f"Among {labels[0]} through {labels[-1]}, what is the correct answer?{template['model_handoff']} "
 
 
-def run_all_baselines(max_questions: int = -1, comment: str = ""):
-    global model, model_filename  #Todo: not use global
-
+def benchmark_all_models(max_questions: int = -1, prompt_template_name: str = "non-cot-standard", comment: str = ""):
     start_tests = time.time()
 
     for model_name in models:
         print("=" * 70)
-        load_model(model_name)
-        test_baseline_in_process(
+        benchmark_single_model_in_process(
+            model_name=model_name,
             max_questions=max_questions,
             log_result=True,
             comment=comment,
-            template=models[model_name]["template"] if models[model_name]["use_template"] else None
+            prompt_template_name=prompt_template_name,
+            chat_template=models[model_name]['chat_template'] if models[model_name]['use_chat_template'] else None
         )
 
     print("=" * 70)
-    end_tests = timqe.time()
+    end_tests = time.time()
     print(f"All tests took {int((end_tests - start_tests) / 60)} minutes {int((end_tests - start_tests) % 60)} seconds.")
     print("=" * 70)
-
-def run_single_baseline_in_process(model_name: str, max_questions=1, log_result=True):
-    load_model(model_name)
-    test_baseline_in_process(max_questions=max_questions, log_result=log_result)
 
 
 def run_single_baseline_on_server(max_questions=1, log_result=True):
     # TODO: Instantiate Backend
-    test_baseline_on_server_async(max_questions=max_questions, log_result=log_result)
+    benchmark_single_model_on_server_async(max_questions=max_questions, log_result=log_result)
 
 
 def load_model(model_name: str):
@@ -459,7 +515,12 @@ if __name__ == '__main__':
     model: Llama
     model_filename: str
 
-    run_all_baselines(max_questions=-1, comment="All baselines with partially activated chat template, standard non cot prompt")
+    benchmark_all_models(
+        max_questions=5,
+        prompt_template_name="non-cot-explicit-instruction",
+        comment="All baselines with partially activated chat template, standard non cot prompt"
+    )
+
     #run_single_baseline_in_process(model_name="llama-2-7b-chat", max_questions=100, log_result=True) # TODO: Add test run comment
     #run_baseline_on_server(max_questions=100, log_result=True) # TODO: Add test run comment
 
