@@ -43,7 +43,7 @@ models = {
     "llama-2-7b-chat": {
         "hf-repo": "TheBloke/Llama-2-7B-Chat-GGUF",
         "template": llama_instruct_chat_template,
-        "use_template": False
+        "use_chat_template": False
     },
     "llama-2-13b-chat": {
         "hf-repo": "TheBloke/Llama-2-13B-Chat-GGUF",
@@ -205,6 +205,8 @@ def benchmark_single_model_in_process(
     print(f"Total accuracy: {total_accuracy} %.")
 
     if log_result:
+        if not os.path.exists('results'):
+            os.makedirs('results')
         filename = f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{prompt_template_name}_arc_test_{num_questions}_{model_filename}_in_process.json"
         f = open(filename, "a")
         f.write(json.dumps(test_result, cls=NumpyEncoder, indent=4))
@@ -474,13 +476,13 @@ def load_model(model_name: str):
         print("Model folder created, as it does not yet exist.")
 
     if not os.path.isfile(model_path):
+        print(f"Download model {model_filename}, as it does not yet exist in the model folder.")
         hf_hub_download(
             repo_id=models[model_name]["hf-repo"],
             filename=model_filename,
             local_dir=model_folder_path,
             local_dir_use_symlinks=False
         )
-        print(f"Model {model_filename} downloaded, as it does not yet exist.")
 
     # Load correct Tokenizer
     if "hf-tokenizer" in models[model_name].keys():
