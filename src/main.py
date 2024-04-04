@@ -15,6 +15,7 @@ from typing_extensions import TypedDict
 from tqdm import tqdm
 from string import Template
 
+
 llama_instruct_chat_template = {
     "begin_question": "<s>[INST]",
     "model_handoff": "[/INST]"
@@ -87,7 +88,14 @@ prompt_templates = {
     }
 }
 
-model_folder_path = "/Users/leonknauer/code/uni/thesis/models"  #"/home/kit/itas/ep8668/models"
+
+try:
+    model_folder_path = os.environ.get("TB_MODEL_PATH")
+    if not model_folder_path:
+        raise KeyError
+except KeyError:
+    print("Please specify a model path in the TB_MODEL_PATH environment variable, where all models get stored.")
+    exit()
 
 
 class SingleResult(TypedDict):
