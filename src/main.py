@@ -74,11 +74,11 @@ models = {
     }
 }
 
-
+# TODO: Add prompt types, e.g. "single pass", "multistep", "conditional", and implement logic
 prompt_templates = {
     "non-cot-standard": {
         "template": Template(
-            "${begin_question}Question: ${question} \n"
+            "${begin_question} Question: ${question} \n"
             "Answer Choices: ${options}"
             "Among ${first_label} through ${last_label}, the correct answer is: ${model_handoff} "
         ),
