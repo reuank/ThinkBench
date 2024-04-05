@@ -143,12 +143,13 @@ def benchmark_single_model_in_process(
         label_numbering: Numbering = Numbering.UNCHANGED,
         log_result: bool = True,
         prompt_template_name: str = "non-cot-standard",
-        chat_template: Dict = None,
         comment: str = ""
 ):
     start_time = time.time()
 
     load_model(model_name)
+
+    chat_template = models[model_name]['chat_template'] if models[model_name]['use_chat_template'] else None
 
     correct_counter = 0
     results = []
@@ -171,7 +172,7 @@ def benchmark_single_model_in_process(
 
         response: CreateCompletionResponse = model.create_completion(
             prompt=prompt,
-            temperature=0,
+            temperature=0.0,
             logprobs=10,
             grammar=get_llama_grammar_from_labels(labels)
         )
@@ -478,8 +479,7 @@ def benchmark_all_models(
             label_numbering=label_numbering,
             log_result=True,
             comment=comment,
-            prompt_template_name=prompt_template_name,
-            chat_template=models[model_name]['chat_template'] if models[model_name]['use_chat_template'] else None
+            prompt_template_name=prompt_template_name
         )
 
     print("=" * 70)
