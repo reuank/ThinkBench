@@ -29,9 +29,19 @@ llama_instruct_chat_template = {
 }
 
 models = {
-    "orca-2-7b": { # pip3 install sentencepiece protobuf
+    "llama-2-7b-chat": {
+        "hf-repo": "TheBloke/Llama-2-7B-Chat-GGUF",
+        "template": llama_instruct_chat_template,
+        "use_chat_template": False
+    },
+    "llama-2-13b-chat": {
+        "hf-repo": "TheBloke/Llama-2-13B-Chat-GGUF",
+        "chat_template": llama_instruct_chat_template,
+        "use_chat_template": False
+    },
+    "orca-2-7b": {
         "hf-repo": "TheBloke/Orca-2-7B-GGUF",
-        "hf-tokenizer": "microsoft/Orca-2-7b",
+        "hf-tokenizer": "microsoft/Orca-2-7b", # pip3 install sentencepiece protobuf
         "chat_template": {
             "begin_question": "<|im_start|>user\n",
             "model_handoff": "'<|im_end|>\n<|im_start|>assistant\n"
@@ -46,16 +56,6 @@ models = {
             "model_handoff": "'<|im_end|>\n<|im_start|>assistant\n"
         },
         "use_chat_template": True
-    },
-    "llama-2-7b-chat": {
-        "hf-repo": "TheBloke/Llama-2-7B-Chat-GGUF",
-        "template": llama_instruct_chat_template,
-        "use_chat_template": False
-    },
-    "llama-2-13b-chat": {
-        "hf-repo": "TheBloke/Llama-2-13B-Chat-GGUF",
-        "chat_template": llama_instruct_chat_template,
-        "use_chat_template": False
     },
     "phi-2": {
         "hf-repo": "TheBloke/Phi-2-GGUF",
