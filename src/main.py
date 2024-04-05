@@ -98,10 +98,11 @@ prompt_templates = {
 
 try:
     model_folder_path = os.environ.get("TB_MODEL_PATH")
-    if not model_folder_path:
+    hostname = os.environ.get("TB_HOSTNAME")
+    if not model_folder_path or not hostname:
         raise KeyError
 except KeyError:
-    print("Please specify a model path in the TB_MODEL_PATH environment variable, where all models get stored.")
+    print("Please specify the necessary environment variables.")
     exit()
 
 
@@ -218,7 +219,7 @@ def benchmark_single_model_in_process(
     if log_result:
         if not os.path.exists('results'):
             os.makedirs('results')
-        filename = f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{prompt_template_name}_arc-c-test-{num_questions}_{model_filename}_{label_numbering.value}_in-process.json"
+        filename = f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{prompt_template_name}_arc-c-test-{num_questions}_{model_filename}_{label_numbering.value}_in-process_{hostname}.json"
         f = open(filename, "a")
         f.write(json.dumps(test_result, cls=NumpyEncoder, indent=4))
         f.close()
