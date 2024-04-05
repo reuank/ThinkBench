@@ -14,6 +14,13 @@ from typing import List, Dict, Optional
 from typing_extensions import TypedDict
 from tqdm import tqdm
 from string import Template
+from enum import Enum
+
+
+class Numbering(Enum):
+    UNCHANGED = "labels-unchanged"
+    NUMBERS = "labels-numbers"
+    ROMAN = "labels-roman"
 
 
 llama_instruct_chat_template = {
@@ -116,6 +123,7 @@ class TestResult(TypedDict):
     end_time: float
     execution_seconds: float
     total_accuracy: float
+    label_numbering: str
     prompt_template: str
     prompt_template_name: str
     comment: str
@@ -132,12 +140,12 @@ class NumpyEncoder(json.JSONEncoder):
 def benchmark_single_model_in_process(
         model_name: str,
         max_questions: int = -1,
+        label_numbering: Numbering = Numbering.UNCHANGED,
         log_result: bool = True,
         prompt_template_name: str = "non-cot-standard",
         chat_template: Dict = None,
         comment: str = ""
 ):
-
     start_time = time.time()
 
     load_model(model_name)
@@ -156,7 +164,8 @@ def benchmark_single_model_in_process(
         answers = choices['text']
         correct_answer = str(dataset['answerKey'][question_id])
 
-        # Todo: Optionally change labels here, and also change correct label accordingly
+        if label_numbering != Numbering.UNCHANGED:
+            labels, correct_answer = substitute_labels(labels, correct_answer, label_numbering)
 
         prompt = fill_prompt_template(prompt_template_name, question, labels, answers, chat_template)
 
@@ -195,6 +204,7 @@ def benchmark_single_model_in_process(
         end_time=end_time,
         execution_seconds=round(time.time() - start_time, 2),
         total_accuracy=total_accuracy,
+        label_numbering=label_numbering.value,
         prompt_template_name=prompt_template_name,
         prompt_template=fill_prompt_template(prompt_template_name, "[Question]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"], chat_template),
         comment=comment,
@@ -207,7 +217,7 @@ def benchmark_single_model_in_process(
     if log_result:
         if not os.path.exists('results'):
             os.makedirs('results')
-        filename = f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{prompt_template_name}_arc_test_{num_questions}_{model_filename}_in_process.json"
+        filename = f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{prompt_template_name}_arc-c-test-{num_questions}_{model_filename}_{label_numbering.value}_in-process.json"
         f = open(filename, "a")
         f.write(json.dumps(test_result, cls=NumpyEncoder, indent=4))
         f.close()
@@ -390,6 +400,18 @@ def is_equal(answer: str, reference: str):
     return answer.strip() == reference
 
 
+def substitute_labels(labels: [str], correct_answer: str, label_numbering: Numbering):
+    new_labels = []
+    new_correct_answer = ""
+
+    if label_numbering == Numbering.NUMBERS:
+        correct_id = labels.index(correct_answer)
+        new_labels = [f"{x + 1}" for x in range(len(labels))] # Generate ["1", "2"] from ["A", "B"]
+        new_correct_answer = new_labels[correct_id]
+
+    return new_labels, new_correct_answer
+
+
 def get_llama_grammar_from_labels(labels: [str]) -> LlamaGrammar:
     return LlamaGrammar.from_string(
         grammar=get_grammar_string_from_labels(labels),
@@ -440,7 +462,12 @@ def non_cot_decision_prompt(question: str, labels: [str], answers: [str], templa
            # f"Among {labels[0]} through {labels[-1]}, what is the correct answer?{template['model_handoff']} "
 
 
-def benchmark_all_models(max_questions: int = -1, prompt_template_name: str = "non-cot-standard", comment: str = ""):
+def benchmark_all_models(
+        max_questions: int = -1,
+        label_numbering: Numbering = Numbering.UNCHANGED,
+        prompt_template_name: str = "non-cot-standard",
+        comment: str = ""
+):
     start_tests = time.time()
 
     for model_name in models:
@@ -448,6 +475,7 @@ def benchmark_all_models(max_questions: int = -1, prompt_template_name: str = "n
         benchmark_single_model_in_process(
             model_name=model_name,
             max_questions=max_questions,
+            label_numbering=label_numbering,
             log_result=True,
             comment=comment,
             prompt_template_name=prompt_template_name,
@@ -527,9 +555,11 @@ if __name__ == '__main__':
 
     benchmark_all_models(
         max_questions=5,
-        prompt_template_name="non-cot-explicit-instruction",
-        comment="All baselines with partially activated chat template, standard non cot prompt"
+        prompt_template_name="non-cot-standard",
+        label_numbering=Numbering.UNCHANGED
     )
+
+    # benchmark_all_models_with_all_prompt_templates()
 
     #run_single_baseline_in_process(model_name="llama-2-7b-chat", max_questions=100, log_result=True) # TODO: Add test run comment
     #run_baseline_on_server(max_questions=100, log_result=True) # TODO: Add test run comment
