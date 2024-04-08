@@ -114,6 +114,7 @@ class SingleResult(TypedDict):
     answers: List[str]
     labels: List[str]
     prompt: str
+    grammar_string: str
     model_choice: str
     correct_answer: str
     is_correct: bool
@@ -129,6 +130,7 @@ class TestResult(TypedDict):
     total_correct: int
     total_accuracy: float
     label_numbering: str
+    grammar_string_example: str
     prompt_template: str
     prompt_template_name: str
     comment: str
@@ -206,6 +208,7 @@ def benchmark_single_model_in_process(
                 question=question,
                 answers=answers,
                 labels=labels,
+                grammar_string=get_grammar_string_from_labels(labels),
                 prompt=prompt,
                 model_choice=model_choice,
                 correct_answer=correct_answer,
@@ -228,6 +231,7 @@ def benchmark_single_model_in_process(
         total_questions=num_questions,
         total_correct=correct_counter,
         label_numbering=label_numbering.value,
+        grammar_string_example=get_grammar_string_from_labels(["A", "B", "C", "D"]),
         prompt_template_name=prompt_template_name,
         prompt_template=fill_prompt_template(prompt_template_name, "[Question]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"], chat_template),
         comment=comment,
