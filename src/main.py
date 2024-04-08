@@ -99,7 +99,8 @@ prompt_templates = {
 try:
     model_folder_path = os.environ.get("TB_MODEL_PATH")
     hostname = os.environ.get("TB_HOSTNAME")
-    if not model_folder_path or not hostname:
+    output_path = os.environ.get("TB_OUTPUT_PATH")
+    if not model_folder_path or not hostname or not output_path:
         raise KeyError
 except KeyError:
     print("Please specify the necessary environment variables.")
@@ -108,6 +109,7 @@ except KeyError:
 
 class SingleResult(TypedDict):
     question_id: int
+    question_id_string: str
     question: str
     answers: List[str]
     labels: List[str]
@@ -123,6 +125,8 @@ class TestResult(TypedDict):
     start_time: float
     end_time: float
     execution_seconds: float
+    total_questions: int
+    total_correct: int
     total_accuracy: float
     label_numbering: str
     prompt_template: str
@@ -139,12 +143,13 @@ class NumpyEncoder(json.JSONEncoder):
 
 
 def benchmark_single_model_in_process(
-        model_name: str,
-        max_questions: int = -1,
-        label_numbering: Numbering = Numbering.UNCHANGED,
-        log_result: bool = True,
-        prompt_template_name: str = "non-cot-standard",
-        comment: str = ""
+    model_name: str,
+    explicit_question_id: int = -1,
+    limit: int = -1,
+    label_numbering: Numbering = Numbering.UNCHANGED,
+    log_result: bool = True,
+    prompt_template_name: str = "non-cot-standard",
+    comment: str = ""
 ):
     start_time = time.time()
 
@@ -154,17 +159,26 @@ def benchmark_single_model_in_process(
 
     correct_counter = 0
     results = []
-    num_questions = len(dataset['id']) if max_questions == -1 else max_questions
+    end_id = len(dataset['id']) if limit == -1 else limit
 
-    for question_id, question in enumerate(t := tqdm(dataset['question'][:num_questions])):
+    start_id = 0
+    if explicit_question_id != -1:
+        start_id = explicit_question_id
+        end_id = start_id + 1
+        print("Limit ignored, because explicit question id was specified.")
+
+    for question_id, question in enumerate(t := tqdm(dataset['question'][start_id:end_id])):
         t.set_description("Testing model")
-        if max_questions != -1 and question_id >= max_questions:
+        if limit != -1 and question_id >= limit:
             break
 
-        choices = dataset['choices'][question_id]
+        question_id_in_dataset = start_id+question_id
+
+        question_id_string = dataset['id'][question_id_in_dataset]
+        choices = dataset['choices'][question_id_in_dataset]
         labels = choices['label']  # [A, B, C, D]
         answers = choices['text']
-        correct_answer = str(dataset['answerKey'][question_id])
+        correct_answer = str(dataset['answerKey'][question_id_in_dataset])
 
         if label_numbering != Numbering.UNCHANGED:
             labels, correct_answer = substitute_labels(labels, correct_answer, label_numbering)
@@ -174,18 +188,21 @@ def benchmark_single_model_in_process(
         response: CreateCompletionResponse = model.create_completion(
             prompt=prompt,
             temperature=0.0,
-            logprobs=10,
+            logprobs=20,
             grammar=get_llama_grammar_from_labels(labels)
         )
 
         model_choice = response["choices"][0]["text"]
+
+        # print(response_json)
 
         if is_equal(model_choice, correct_answer):
             correct_counter += 1
 
         results.append(
             SingleResult(
-                question_id=question_id,
+                question_id=start_id+question_id,
+                question_id_string=question_id_string,
                 question=question,
                 answers=answers,
                 labels=labels,
@@ -199,6 +216,8 @@ def benchmark_single_model_in_process(
 
     end_time = time.time()
 
+    num_questions = end_id - start_id
+
     total_accuracy = round(correct_counter * 100/num_questions, 2)
     test_result = TestResult(
         model=model_filename,
@@ -206,6 +225,8 @@ def benchmark_single_model_in_process(
         end_time=end_time,
         execution_seconds=round(time.time() - start_time, 2),
         total_accuracy=total_accuracy,
+        total_questions=num_questions,
+        total_correct=correct_counter,
         label_numbering=label_numbering.value,
         prompt_template_name=prompt_template_name,
         prompt_template=fill_prompt_template(prompt_template_name, "[Question]", ["[Label1]", "[Label2]"],  ["[Answer1]", "[Answer2]"], chat_template),
@@ -219,7 +240,7 @@ def benchmark_single_model_in_process(
     if log_result:
         if not os.path.exists('results'):
             os.makedirs('results')
-        filename = f"results/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{prompt_template_name}_arc-c-test-{num_questions}_{model_filename}_{label_numbering.value}_in-process_{hostname}.json"
+        filename = f"{output_path}/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{prompt_template_name}_arc-c-test-{num_questions}_{model_filename}_{label_numbering.value}_in-process_{hostname}.json"
         f = open(filename, "a")
         f.write(json.dumps(test_result, cls=NumpyEncoder, indent=4))
         f.close()
@@ -476,7 +497,7 @@ def benchmark_all_models(
         print("=" * 70)
         benchmark_single_model_in_process(
             model_name=model_name,
-            max_questions=max_questions,
+            limit=max_questions,
             label_numbering=label_numbering,
             log_result=True,
             comment=comment,
@@ -554,14 +575,13 @@ if __name__ == '__main__':
     model: Llama
     model_filename: str
 
+    benchmark_single_model_in_process(limit=-1, model_name="orca-2-13b", prompt_template_name="non-cot-standard", label_numbering=Numbering.UNCHANGED, comment="Old BNF")
+    quit()
+
     benchmark_all_models(
-        max_questions=5,
+        max_questions=-1,
         prompt_template_name="non-cot-standard",
         label_numbering=Numbering.UNCHANGED
     )
 
     # benchmark_all_models_with_all_prompt_templates()
-
-    #run_single_baseline_in_process(model_name="llama-2-7b-chat", max_questions=100, log_result=True) # TODO: Add test run comment
-    #run_baseline_on_server(max_questions=100, log_result=True) # TODO: Add test run comment
-
