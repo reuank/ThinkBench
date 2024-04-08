@@ -211,6 +211,10 @@ def benchmark_single_model_in_process(
         if is_equal(model_choice, correct_answer):
             correct_counter += 1
 
+        top_logprobs = response["choices"][0]["logprobs"]["top_logprobs"][0]
+        top_logprobs_sorted = sorted(top_logprobs.items(), key=lambda x: x[1], reverse=True)
+        top_logprobs_sorted = dict(top_logprobs_sorted)
+
         results.append(
             SingleResult(
                 question_id=start_id+question_id,
@@ -223,7 +227,7 @@ def benchmark_single_model_in_process(
                 model_choice=model_choice,
                 correct_answer=correct_answer,
                 is_correct=is_equal(model_choice, correct_answer),
-                top_logprobs=response["choices"][0]["logprobs"]["top_logprobs"][0]
+                top_logprobs=top_logprobs_sorted
             )
         )
 
