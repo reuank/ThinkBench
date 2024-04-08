@@ -203,9 +203,10 @@ def benchmark_single_model_in_process(
             grammar=get_llama_grammar_from_labels(labels)
         )
 
-        model_choice = response["choices"][0]["text"]
+        #print(json.dumps(response, cls=NumpyEncoder, indent=2))
+        #quit()
 
-        # print(response_json)
+        model_choice = str(response["choices"][0]["logprobs"]["tokens"][0])
 
         if is_equal(model_choice, correct_answer):
             correct_counter += 1
