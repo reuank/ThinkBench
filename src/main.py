@@ -461,10 +461,11 @@ def get_llama_grammar_from_labels(labels: [str]) -> LlamaGrammar:
 
 
 def get_grammar_string_from_labels(labels: [str]) -> str:
-    labels_with_quotes = list(map(lambda label: f'"{label}"', labels))
+    # labels_with_quotes = list(map(lambda label: f'"{label}"', labels))
 
     # Accept only label tokens, e.g. "A", " A", ...
-    return f"root   ::= [ ]? option \noption ::= ({'|'.join(labels_with_quotes) })"
+    return f'root ::= " "? [{labels[0]}-{labels[-1]}]'
+    # return f"root   ::= [ ]? option \noption ::= ({'|'.join(labels_with_quotes)})"
 
 
 def fill_prompt_template(prompt_template_name: str, question: str, labels: [str], answers: [str], chat_template: Dict) -> str:
