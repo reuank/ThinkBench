@@ -44,7 +44,7 @@ models = {
         "hf-tokenizer": "microsoft/Orca-2-7b", # pip3 install sentencepiece protobuf
         "chat_template": {
             "begin_question": "<|im_start|>user\n",
-            "model_handoff": "'<|im_end|>\n<|im_start|>assistant\n"
+            "model_handoff": "<|im_end|>\n<|im_start|>assistant\n"
         },
         "use_chat_template": True
     },
@@ -53,7 +53,7 @@ models = {
         "hf-tokenizer": "microsoft/Orca-2-7b",
         "chat_template": {
             "begin_question": "<|im_start|>user\n",
-            "model_handoff": "'<|im_end|>\n<|im_start|>assistant\n"
+            "model_handoff": "<|im_end|>\n<|im_start|>assistant\n"
         },
         "use_chat_template": True
     },
