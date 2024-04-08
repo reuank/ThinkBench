@@ -23,6 +23,15 @@ class Numbering(Enum):
     ROMAN = "labels-roman"
 
 
+class Models(Enum):
+    LLAMA_2_7B_CHAT = "llama-2-7b-chat"
+    LLAMA_2_13B_CHAT = "llama-2-13b-chat"
+    ORCA_2_7B = "orca-2-7b"
+    ORCA_2_13B = "orca-2-13b"
+    PHI_2 = "phi-2"
+    MISTRAL_7B = "mistral-7b-instruct-v0.2"
+
+
 llama_instruct_chat_template = {
     "begin_question": "<s>[INST]",
     "model_handoff": "[/INST]"
@@ -579,7 +588,7 @@ if __name__ == '__main__':
     model: Llama
     model_filename: str
 
-    benchmark_single_model_in_process(limit=-1, model_name="orca-2-13b", prompt_template_name="non-cot-standard", label_numbering=Numbering.UNCHANGED, comment="Old BNF")
+    benchmark_single_model_in_process(explicit_question_id=0, limit=-1, model_name=Models.ORCA_2_13B.value, prompt_template_name="non-cot-standard", label_numbering=Numbering.UNCHANGED, comment="Old BNF")
     quit()
 
     benchmark_all_models(
