@@ -27,7 +27,7 @@ class JsonFileStorage(StorageBackend):
             exit()
 
     def store(self, test_case_result: TestCaseResult):
-        filename = f"{self.output_path}/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{test_case_result['benchmark_name']}_{test_case_result['dataset_name']}-{test_case_result['total_results']}_{test_case_result['model']}_labels-{test_case_result['label_numbering']}_{test_case_result['inference_backend']}_{test_case_result['hostname']}.json"
+        filename = f"{self.output_path}/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{test_case_result['benchmark_name']}_{test_case_result['model']}_{test_case_result['dataset_name']}-{test_case_result['total_results']}_labels-{test_case_result['label_numbering']}_{'use-chat-template' if test_case_result['use_chat_template'] else 'no-chat-template'}_{test_case_result['inference_backend']}_{test_case_result['hostname']}.json"
         f = open(filename, "a")
         f.write(json.dumps(test_case_result, cls=NumpyEncoder, indent=4))
         f.close()

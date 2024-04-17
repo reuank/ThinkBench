@@ -120,7 +120,8 @@ class InferenceBackend(ABC):
             end_time=end_time,
             execution_seconds=round(time.time() - start_time, 2),
             comment=comment,
-            results=single_results,
+            use_chat_template=test_case.use_chat_template,
+            results=single_results
         )
 
     def execute_prompt_chain(self, prompt_chain: PromptChain, single_data_instance: SingleDataInstance, use_chat_template: bool) -> List[CompletionResult]:

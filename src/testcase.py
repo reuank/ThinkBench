@@ -21,6 +21,7 @@ class TestCaseResult(TypedDict):
     #grammar_string_example: str
     #prompt_template: str
     comment: str
+    use_chat_template: bool
     results: List[SingleBenchmarkResult]
 
 
