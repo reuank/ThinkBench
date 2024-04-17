@@ -3,3 +3,4 @@
 results/
 examples/
 .env
+__pycache__
