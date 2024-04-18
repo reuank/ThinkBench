@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import TypedDict, Dict, List, Optional, Any
 
 from dataset import SingleDataInstance
-from decoder import GreedyConstrainedDecoder
+from decoder import GreedyConstrainedDecoder, GreedyDecoder
 from completion_result import CompletionResult
 from prompt import PromptChain
 
@@ -133,6 +133,30 @@ class NonCoTScoreIndividuallyBenchmark(Benchmark):
 
     def get_fewshots(self, Data):
         return
+
+
+class CoTStandardBenchmark(Benchmark):
+    def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
+        prompt_chains = [
+            PromptChain()
+                .add_default_question_template()
+                .add_default_answer_options_template()
+                .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
+                              "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer?\n\n")
+                .add_text("Let's think step by step.")
+                .get_completion(max_tokens=1024, decoder=GreedyDecoder(), prefix="Reasoning: ")
+                .add_template("Given this reasoning, the correct answer is: ")
+                .get_completion(decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels))
+        ]
+
+        return prompt_chains
+
+    def compute_single_result(self, single_data_instance: SingleDataInstance,
+                              prompt_chain_results: List[List[CompletionResult]]) -> SingleBenchmarkResult:
+        pass
+
+    def compute_metrics(self, all_results: List[SingleBenchmarkResult]) -> Dict[str, float | int]:
+        pass
 
 
 benchmark_mapping: Dict[str, callable] = {
