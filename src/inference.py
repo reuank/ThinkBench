@@ -57,7 +57,7 @@ class InferenceBackend(ABC):
     @staticmethod
     def get_by_name(backend_name):
         inference_backend: InferenceBackend
-        if backend_name == "llama-cpp-python":
+        if backend_name == "llama-cpp-python" or backend_name == "default":
             inference_backend = LlamaCppPythonInferenceBackend()
         else:
             raise ValueError(f"Backend name '{backend_name}' not found.")
@@ -145,7 +145,8 @@ class InferenceBackend(ABC):
                     prompt = self.current_model_config.chat_template.render(
                         messages=message_history.messages,
                         bos_token=self.current_model_config.bos_token,
-                        eos_token=self.current_model_config.eos_token
+                        eos_token=self.current_model_config.eos_token,
+                        add_generation_prompt=True
                     )
                 else:
                     prompt = message_history.get_concatenated_messages()
@@ -155,7 +156,6 @@ class InferenceBackend(ABC):
 
                 message = str(completion.choices[0].text)
                 message_history.add_assistant_message(message)
-
             else:
                 raise ValueError(f"Prompt step type {prompt_step_type} not implemented.")
 
@@ -180,7 +180,7 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
             if not self.model_folder_path:
                 raise KeyError
         except KeyError:
-            print("Please specify the necessary a model path.")
+            print("Please specify a model path.")
             exit()
 
     def load_model_from_config(self, model_config: ModelConfig):

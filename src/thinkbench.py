@@ -20,7 +20,7 @@ from testcase import TestCase, TestCaseResult
 
 class ThinkBench:
     @staticmethod
-    def run_benchmark(inference_backend, models, datasets, benchmark="default", limit=-1, labels="unchanged", use_chat_templates=False, comment=""):
+    def run_benchmark(models, datasets, inference_backend="default", benchmark="default", limit=-1, labels="unchanged", use_chat_template=False, comment=""):
         inference_backend: InferenceBackend = InferenceBackend.get_by_name(inference_backend)
         storage_backend: StorageBackend = JsonFileStorage()
 
@@ -46,7 +46,7 @@ class ThinkBench:
                 label_numbering: Numbering = Numbering(labels)
                 benchmark: Benchmark = Benchmark.get_by_name(benchmark)
 
-                test_case: TestCase = TestCase(dataset, limit, label_numbering, benchmark, use_chat_templates)  # num-fewshot # use chat templates
+                test_case: TestCase = TestCase(dataset, limit, label_numbering, benchmark, use_chat_template)  # num-fewshot # use chat templates
                 test_case_result: TestCaseResult = inference_backend.run_test_case(test_case, comment)
 
                 storage_backend.store(test_case_result)
