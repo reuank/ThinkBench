@@ -44,7 +44,7 @@ class HFModelConfig(ModelConfig):
 model_mapping: Dict[str, ModelConfig] = {
     "llama-2-7b-chat": HFModelConfig(
         model_name="llama-2-7b-chat",
-        chat_template=ModelConfig.load_template("llama-2-7b-chat"),
+        chat_template=ModelConfig.load_template("llama-2-chat"),
         hf_repo="TheBloke/Llama-2-7B-Chat-GGUF",
         hf_tokenizer="meta-llama/Llama-2-7b-chat-hf",
         use_hf_tokenizer=True,
@@ -53,7 +53,7 @@ model_mapping: Dict[str, ModelConfig] = {
     ),
     "llama-2-13b-chat": HFModelConfig(
         model_name="llama-2-13b-chat",
-        chat_template=ModelConfig.load_template("llama-2-7b-chat"),
+        chat_template=ModelConfig.load_template("llama-2-chat"),
         hf_repo="TheBloke/Llama-2-13B-Chat-GGUF",
         hf_tokenizer="meta-llama/Llama-2-13b-chat-hf",
         use_hf_tokenizer=True,
@@ -62,7 +62,7 @@ model_mapping: Dict[str, ModelConfig] = {
     ),
     "orca-2-7b": HFModelConfig(
         model_name="orca-2-7b",
-        chat_template=ModelConfig.load_template("llama-2-7b-chat"),
+        chat_template=ModelConfig.load_template("orca-2"),
         hf_repo="TheBloke/Orca-2-7B-GGUF",
         hf_tokenizer="microsoft/Orca-2-7b",
         use_hf_tokenizer=True,
@@ -71,7 +71,7 @@ model_mapping: Dict[str, ModelConfig] = {
     ),
     "orca-2-13b": HFModelConfig(
         model_name="orca-2-13b",
-        chat_template=ModelConfig.load_template("llama-2-7b-chat"),
+        chat_template=ModelConfig.load_template("orca-2"),
         hf_repo="TheBloke/Orca-2-13B-GGUF",
         hf_tokenizer="microsoft/Orca-2-7b",
         use_hf_tokenizer=True,
