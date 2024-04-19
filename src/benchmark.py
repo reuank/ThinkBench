@@ -145,7 +145,7 @@ class CoTStandardBenchmark(Benchmark):
                               "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer?\n\n")
                 .add_text("Let's think step by step.")
                 .get_completion(max_tokens=1024, decoder=GreedyDecoder(), prefix="Reasoning: ")
-                .add_template("Given this reasoning, the correct answer is: ")
+                .add_text("Given this reasoning, the correct answer is: ")
                 .get_completion(decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels))
         ]
 
@@ -162,6 +162,6 @@ class CoTStandardBenchmark(Benchmark):
 benchmark_mapping: Dict[str, callable] = {
     "default": NonCoTStandardBenchmark,
     "non-cot-standard": NonCoTStandardBenchmark,
-    "non-cot-explicit": NonCoTExplicitInstructionBenchmark,
+    "non-cot-instruct": NonCoTExplicitInstructionBenchmark,
     "non-cot-score-individually": NonCoTScoreIndividuallyBenchmark
 }

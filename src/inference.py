@@ -245,6 +245,8 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
         # self.current_model_config.eos_token = special_tokens[1]
 
     def create_completion(self, prompt: str, completion_config: CompletionConfig, decoder: Decoder) -> CompletionResult:
+        grammar = None
+
         if type(decoder) == GreedyConstrainedDecoder:
             decoder: GreedyConstrainedDecoder
 
@@ -253,15 +255,15 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
                 verbose=False
             )
 
-            completion_response: CreateCompletionResponse = self.loaded_model.create_completion(
-                prompt=prompt,
-                max_tokens=completion_config.max_tokens,
-                temperature=completion_config.temperature,
-                logprobs=completion_config.max_logprobs,
-                grammar=grammar
-            )
+        completion_response: CreateCompletionResponse = self.loaded_model.create_completion(
+            prompt=prompt,
+            max_tokens=completion_config.max_tokens,
+            temperature=completion_config.temperature,
+            logprobs=completion_config.max_logprobs,
+            grammar=grammar
+        )
 
-            return self.__convert_completion_response(prompt, completion_response)
+        return self.__convert_completion_response(prompt, completion_response)
 
     @staticmethod
     def __convert_completion_response(prompt: str, completion_response: CreateCompletionResponse) -> CompletionResult:

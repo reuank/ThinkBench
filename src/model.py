@@ -5,6 +5,7 @@ from jinja2 import Template, FileSystemLoader, Environment
 
 class ModelConfig(ABC):
     model_name: str
+    chat_template_name: str
     chat_template: Template
     bos_token: str = ""
     eos_token: str = ""
@@ -31,9 +32,10 @@ class HFModelConfig(ModelConfig):
     hf_tokenizer: str = ""
     use_hf_tokenizer: bool
 
-    def __init__(self, model_name: str, chat_template: Template, hf_repo: str, hf_tokenizer: str, use_hf_tokenizer: bool, bos_token: str, eos_token: str):
+    def __init__(self, model_name: str, chat_template_name: str, hf_repo: str, hf_tokenizer: str, use_hf_tokenizer: bool, bos_token: str, eos_token: str):
         self.model_name = model_name
-        self.chat_template = chat_template
+        self.chat_template_name = chat_template_name
+        self.chat_template = self.load_template(chat_template_name)
         self.hf_repo = hf_repo
         self.hf_tokenizer = hf_tokenizer
         self.use_hf_tokenizer = use_hf_tokenizer
@@ -44,28 +46,28 @@ class HFModelConfig(ModelConfig):
 model_mapping: Dict[str, ModelConfig] = {
     "llama-2-7b-chat": HFModelConfig(
         model_name="llama-2-7b-chat",
-        chat_template=ModelConfig.load_template("llama-2-chat"),
+        chat_template_name="llama-2-chat",
         hf_repo="TheBloke/Llama-2-7B-Chat-GGUF",
         hf_tokenizer="meta-llama/Llama-2-7b-chat-hf",
         use_hf_tokenizer=True
     ),
     "llama-2-13b-chat": HFModelConfig(
         model_name="llama-2-13b-chat",
-        chat_template=ModelConfig.load_template("llama-2-chat"),
+        chat_template_name="llama-2-chat",
         hf_repo="TheBloke/Llama-2-13B-Chat-GGUF",
         hf_tokenizer="meta-llama/Llama-2-13b-chat-hf",
         use_hf_tokenizer=True
     ),
     "orca-2-7b": HFModelConfig(
         model_name="orca-2-7b",
-        chat_template=ModelConfig.load_template("orca-2"),
+        chat_template_name="orca-2",
         hf_repo="TheBloke/Orca-2-7B-GGUF",
         hf_tokenizer="microsoft/Orca-2-7b",
         use_hf_tokenizer=True
     ),
     "orca-2-13b": HFModelConfig(
         model_name="orca-2-13b",
-        chat_template=ModelConfig.load_template("orca-2"),
+        chat_template_name="orca-2",
         hf_repo="TheBloke/Orca-2-13B-GGUF",
         hf_tokenizer="microsoft/Orca-2-7b",
         use_hf_tokenizer=True
