@@ -7,8 +7,6 @@ class ModelConfig(ABC):
     model_name: str
     chat_template_name: str
     chat_template: Template
-    bos_token: str = ""
-    eos_token: str = ""
 
     @staticmethod
     def load_template(template_name: str) -> Template:
@@ -32,15 +30,13 @@ class HFModelConfig(ModelConfig):
     hf_tokenizer: str = ""
     use_hf_tokenizer: bool
 
-    def __init__(self, model_name: str, chat_template_name: str, hf_repo: str, hf_tokenizer: str, use_hf_tokenizer: bool, bos_token: str, eos_token: str):
+    def __init__(self, model_name: str, chat_template_name: str, hf_repo: str, hf_tokenizer: str, use_hf_tokenizer: bool):
         self.model_name = model_name
         self.chat_template_name = chat_template_name
         self.chat_template = self.load_template(chat_template_name)
         self.hf_repo = hf_repo
         self.hf_tokenizer = hf_tokenizer
         self.use_hf_tokenizer = use_hf_tokenizer
-        self.bos_token = bos_token
-        self.eos_token = eos_token
 
 
 model_mapping: Dict[str, ModelConfig] = {

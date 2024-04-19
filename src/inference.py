@@ -146,8 +146,6 @@ class InferenceBackend(ABC):
                 if use_chat_template:
                     prompt = self.current_model_config.chat_template.render(
                         messages=message_history.messages,
-                        bos_token=self.current_model_config.bos_token,
-                        eos_token=self.current_model_config.eos_token,
                         add_generation_prompt=True
                     )
                 else:
