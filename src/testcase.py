@@ -12,14 +12,10 @@ class TestCaseResult(TypedDict):
     hostname: str
     inference_backend: str
     inference_backend_properties: Optional[Dict]
-    total_results: int
-    total_correct: int
-    total_accuracy: float
+    metrics: Dict[str, float | int]
     start_time: float
     end_time: float
     execution_seconds: float
-    #grammar_string_example: str
-    #prompt_template: str
     comment: str
     use_chat_template: bool
     results: List[SingleBenchmarkResult]
