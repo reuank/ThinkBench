@@ -82,6 +82,6 @@ def compare(file1, file2):
 
 if __name__ == '__main__':
     check_anomalies(
-        "../results/2024-04-08_16-26-06_non-cot-standard_arc-c-test-1172_orca-2-13b.Q4_K_M.gguf_labels-unchanged_in-process_MBP-M1-Max.json")
+        "../../results/2024-04-18_16-26-18_NonCoTStandardBenchmark_orca-2-13b_ARCChallengeDataset-1172_labels-unchanged_use-chat-template_LlamaCppPythonInferenceBackend_MBP-M1-Max.json")
 
 # compare("../results/2024-04-08_15-19-28_non-cot-standard_arc-c-test-100_orca-2-13b.Q4_K_M.gguf_labels-unchanged_in-process_localhost.json", "../results/2024-04-08_15-22-18_non-cot-standard_arc-c-test-100_orca-2-13b.Q4_K_M.gguf_labels-unchanged_in-process_localhost.json")
