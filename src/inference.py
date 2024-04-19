@@ -105,6 +105,10 @@ class InferenceBackend(ABC):
             print("Please specify the necessary environment variables.")
             hostname = ""
 
+        print("="*45)
+        print(f"Execution took {round(time.time() - start_time, 2)} seconds.")
+        print(f"Metrics: {metrics}.")
+
         return TestCaseResult(
             model=self.current_model_config.model_name,
             dataset_name=test_case.dataset.name,
