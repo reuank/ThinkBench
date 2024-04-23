@@ -33,5 +33,14 @@ class GreedyDecoder(Decoder):
 
 
 class GreedyConstrainedDecoder(GreedyDecoder):
+    allowed_string: List[str]
+
     def __init__(self, allowed_strings: List[str]):
         self.allowed_strings = allowed_strings
+
+
+class BeamSearch(Decoder):
+    num_beams: int
+
+    def __init__(self, num_beams: int):
+        self.num_beams = num_beams

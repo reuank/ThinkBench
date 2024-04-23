@@ -253,6 +253,12 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
                 verbose=False
             )
 
+        if type(decoder) == GreedyDecoder:  # TODO
+            pass
+
+        if type(decoder) == BeamSearch:  # TODO
+            pass
+
         completion_response: CreateCompletionResponse = self.loaded_model.create_completion(
             prompt=prompt,
             max_tokens=completion_config.max_tokens,
