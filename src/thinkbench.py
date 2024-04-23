@@ -24,7 +24,9 @@ class ThinkBench:
         inference_backend: InferenceBackend = InferenceBackend.get_by_name(inference_backend)
         storage_backend: StorageBackend = JsonFileStorage()
 
-        if models == "all":
+        if models == "all-required":
+            models = ModelConfig.get_all_required_names()
+        elif models == "all":
             models = ModelConfig.get_all_names()
         if type(models) == str:
             models = [models]
