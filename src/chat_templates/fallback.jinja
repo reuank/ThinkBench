@@ -1,13 +1,12 @@
-{% set bos_token = '<s>' %}
-{% set eos_token = '</s>' %}
-
-{%- if messages[0]['role'] == 'system' -%}
+{% set bos_token = '<|endoftext|>' %}
+{% set eos_token = '<|endoftext|>' %}
+{% if messages[0]['role'] == 'system' %}
     {% set loop_messages = messages[1:] %}
-    {% set system_message = '<|im_start|>system\n' + messages[0]['content'].strip() + '\n<|im_end|>\n' %}
+    {% set system_message = 'System: ' + messages[0]['content'].strip() + '\n' %}
 {% else %}
     {% set loop_messages = messages %}
     {% set system_message = '' %}
-{%- endif -%}
+{% endif %}
 
 {%- for message in loop_messages -%}
     {%- if (message['role'] == 'user') != (loop.index0 % 2 == 0) -%}
@@ -22,8 +21,13 @@
         {{- bos_token + system_message -}}
     {%- endif -%}
 
-    {{- '<|im_start|>' + message['role'] + '\n' + message['content'].strip() + '\n<|im_end|>\n' -}}
+    {%- if message['role'] == 'user' -%}
+        {{- 'Instruct: ' + message['content'].strip() + '\n' -}}
+    {%- elif message['role'] == 'assistant' -%}
+        {{- 'Output: ' + message['content'].strip() + '\n' -}}
+    {%- endif -%}
+
+    {%- if loop.index0 == (loop.length - 1) and add_generation_prompt -%}
+        {{- 'Output: \n' -}}
+    {%- endif %}
 {%- endfor -%}
-{%- if add_generation_prompt -%}
-    {{- '<|im_start|>assistant\n' -}}
-{%- endif %}
