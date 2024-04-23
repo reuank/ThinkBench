@@ -258,7 +258,8 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
             max_tokens=completion_config.max_tokens,
             temperature=completion_config.temperature,
             logprobs=completion_config.max_logprobs,
-            grammar=grammar
+            grammar=grammar,
+            repeat_penalty=completion_config.repeat_penalty
         )
 
         return self.__convert_completion_response(prompt, completion_response)

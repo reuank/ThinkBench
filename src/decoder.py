@@ -9,12 +9,14 @@ class CompletionConfig:
     temperature: float
     max_logprobs: int
     echo: bool
+    repeat_penalty: float  # penalty of 1.0 fixes selection of less likely yet valid token when using grammars
 
-    def __init__(self, max_tokens: int = 1, temperature: float = 0.0, max_logprobs: int = 10, echo: bool = False):
+    def __init__(self, max_tokens: int = 1, temperature: float = 0.0, max_logprobs: int = 10, echo: bool = False, repeat_penalty: float = 1.0):
         self.max_tokens = max_tokens
         self.temperature = temperature
         self.max_logprobs = max_logprobs
         self.echo = echo
+        self.repeat_penalty = repeat_penalty
 
     def __repr__(self):
         return json.dumps(self, default=lambda o: o.__dict__, indent=4)
