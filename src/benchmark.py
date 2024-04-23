@@ -3,7 +3,7 @@ from typing import TypedDict, Dict, List, Optional, Any
 
 from dataset import SingleDataInstance
 from decoder import GreedyConstrainedDecoder, GreedyDecoder
-from completion_result import CompletionResult
+from completion import CompletionResult, CompletionHistory
 from prompt import PromptChain
 
 
@@ -13,12 +13,12 @@ class SingleBenchmarkResult(TypedDict):
     question: str
     answers: List[str]
     labels: List[str]
-    prompt: str
-    grammar_string: str
+    last_prompt: str
+    completions: List[CompletionHistory]
     model_choice: str
     correct_answer: str
     is_correct: bool
-    top_logprobs: Dict[str, float]
+    last_top_logprobs: Dict[str, float]
 
 
 class Benchmark(ABC):
@@ -39,7 +39,7 @@ class Benchmark(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def compute_single_result(self, single_data_instance: SingleDataInstance, prompt_chain_results: List[List[CompletionResult]]) -> SingleBenchmarkResult:
+    def compute_single_result(self, single_data_instance: SingleDataInstance, prompt_chain_results: List[CompletionHistory]) -> SingleBenchmarkResult:
         raise NotImplementedError
 
     @abstractmethod
@@ -47,27 +47,16 @@ class Benchmark(ABC):
         raise NotImplementedError
 
 
-class NonCoTStandardBenchmark(Benchmark):
-    def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
-        prompt_chains = [
-            PromptChain().add_default_question_template()
-                         .add_default_answer_options_template()
-                         .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
-                                       "{{ single_data_instance.answer_labels[-1] }}, the correct answer is: ")
-                         .get_completion(decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels))
-        ]
+class LabelGenerationBenchmarkType(Benchmark, ABC):
+    @staticmethod
+    def is_equal(answer: str, reference: str) -> bool:
+        return answer.strip() == reference
 
-        return prompt_chains
-
-    def compute_single_result(self, single_data_instance: SingleDataInstance, prompt_chain_results: List[List[CompletionResult]]) -> SingleBenchmarkResult:
-        relevant_completion = prompt_chain_results[0][0]
-
-        model_selection = relevant_completion.choices[0].logprobs.tokens[0]
+    def compute_single_result(self, single_data_instance: SingleDataInstance,
+                              prompt_chain_results: List[CompletionHistory]) -> SingleBenchmarkResult:
+        answer_label_completion = prompt_chain_results[0].completions["label"].completion_result
+        model_selection = answer_label_completion.get_most_probable_token()
         correct_answer_label = single_data_instance.answer_labels[single_data_instance.correct_key]
-
-        #top_logprobs = relevant_completion.choices[0].logprobs.top_logprobs[0]
-        #top_logprobs_sorted = sorted(top_logprobs.items(), key=lambda x: x[1], reverse=True)
-        #top_logprobs_sorted = dict(top_logprobs_sorted)
 
         return SingleBenchmarkResult(
             question_id=single_data_instance.id,
@@ -75,17 +64,13 @@ class NonCoTStandardBenchmark(Benchmark):
             question=single_data_instance.question,
             answers=single_data_instance.answer_texts,
             labels=single_data_instance.answer_labels,
-            prompt=relevant_completion.prompt,
+            last_prompt=answer_label_completion.prompt,
+            completions=prompt_chain_results,
             model_choice=model_selection,
             correct_answer=correct_answer_label,
             is_correct=self.is_equal(model_selection, correct_answer_label),
-            top_logprobs=relevant_completion.choices[0].logprobs.top_logprobs[0],
-            grammar_string=""
+            last_top_logprobs=answer_label_completion.choices[0].logprobs.top_logprobs[0]
         )
-
-    @staticmethod
-    def is_equal(answer: str, reference: str):
-        return answer.strip() == reference
 
     def compute_metrics(self, all_results: List[SingleBenchmarkResult]) -> Dict:
         total_results = len(all_results)
@@ -99,22 +84,61 @@ class NonCoTStandardBenchmark(Benchmark):
         }
 
 
+class ScoringBenchmarkType(Benchmark, ABC):
+    def compute_single_result(self, single_data_instance: SingleDataInstance, prompt_chain_results: List[List[CompletionResult]]):
+        # get highest score
+        pass
+
+    def compute_metrics(self, all_results: List[SingleBenchmarkResult]) -> Dict[str, float | int]:
+        pass
+
+
+class NonCoTStandardBenchmark(LabelGenerationBenchmarkType):
+    def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
+        prompt_chains = [
+            PromptChain().add_default_question_template()
+                         .add_default_answer_options_template()
+                         .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
+                                       "{{ single_data_instance.answer_labels[-1] }}, the correct answer is: ")
+                         .get_completion(max_logprobs=50, decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels), name="label")
+        ]
+
+        return prompt_chains
+
+
 class NonCoTExplicitInstructionBenchmark(NonCoTStandardBenchmark):
     def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
         prompt_chains = [
             PromptChain().add_default_question_template()
                 .add_default_answer_options_template()
                 .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
-                              "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer?\n\n")
+                              "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer? ")
                 .add_template("Just answer with the correct label, e.g. with {{ single_data_instance.answer_labels[0]}}"
                               " if answer {{ single_data_instance.answer_labels[0] }} is correct.")
-                .get_completion(decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels))
+                .get_completion(decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels), name="label")
         ]
 
         return prompt_chains
 
 
-class NonCoTScoreIndividuallyBenchmark(Benchmark):
+class CoTStandardBenchmark(LabelGenerationBenchmarkType):
+    def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
+        prompt_chains = [
+            PromptChain()
+                .add_default_question_template()
+                .add_default_answer_options_template()
+                .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
+                              "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer?\n\n")
+                .add_text("Let's think step by step.")
+                .get_completion(max_tokens=2048, decoder=GreedyDecoder(), prefix="Reasoning: ", name="reasoning")
+                .add_text("Given this reasoning, the correct answer is: ")
+                .get_completion(decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels), name="label")
+        ]
+
+        return prompt_chains
+
+
+class NonCoTScoreIndividuallyBenchmark(ScoringBenchmarkType):
     def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
         prompt_chains = []
 
@@ -127,41 +151,11 @@ class NonCoTScoreIndividuallyBenchmark(Benchmark):
 
         return prompt_chains
 
-    def compute_single_result(self, single_data_instance: SingleDataInstance, prompt_chain_results: List[List[CompletionResult]]):
-        # get highest score
-        pass
-
-    def get_fewshots(self, Data):
-        return
-
-
-class CoTStandardBenchmark(Benchmark):
-    def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
-        prompt_chains = [
-            PromptChain()
-                .add_default_question_template()
-                .add_default_answer_options_template()
-                .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
-                              "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer?\n\n")
-                .add_text("Let's think step by step.")
-                .get_completion(max_tokens=1024, decoder=GreedyDecoder(), prefix="Reasoning: ")
-                .add_text("Given this reasoning, the correct answer is: ")
-                .get_completion(decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels))
-        ]
-
-        return prompt_chains
-
-    def compute_single_result(self, single_data_instance: SingleDataInstance,
-                              prompt_chain_results: List[List[CompletionResult]]) -> SingleBenchmarkResult:
-        pass
-
-    def compute_metrics(self, all_results: List[SingleBenchmarkResult]) -> Dict[str, float | int]:
-        pass
-
 
 benchmark_mapping: Dict[str, callable] = {
     "default": NonCoTStandardBenchmark,
     "non-cot-standard": NonCoTStandardBenchmark,
     "non-cot-instruct": NonCoTExplicitInstructionBenchmark,
-    "non-cot-score-individually": NonCoTScoreIndividuallyBenchmark
+    "non-cot-score-individually": NonCoTScoreIndividuallyBenchmark,
+    "cot-standard": CoTStandardBenchmark
 }

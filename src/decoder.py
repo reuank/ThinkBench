@@ -1,31 +1,15 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import List
 
 import json
 
 
-class CompletionConfig:
-    max_tokens: int
-    temperature: float
-    max_logprobs: int
-    echo: bool
-    repeat_penalty: float  # penalty of 1.0 fixes selection of less likely yet valid token when using grammars
-
-    def __init__(self, max_tokens: int = 1, temperature: float = 0.0, max_logprobs: int = 10, echo: bool = False, repeat_penalty: float = 1.0):
-        self.max_tokens = max_tokens
-        self.temperature = temperature
-        self.max_logprobs = max_logprobs
-        self.echo = echo
-        self.repeat_penalty = repeat_penalty
-
-    def __repr__(self):
-        return json.dumps(self, default=lambda o: o.__dict__, indent=4)
-
-
 class Decoder(ABC):
+    def to_dict(self):
+        return {'decoder': self.__class__.__name__, 'attributes': self.__dict__}
+
     def __repr__(self):
-        obj_representation = {'decoder_type': self.__class__.__name__, 'attributes': self.__dict__}
-        return json.dumps(obj_representation)
+        return json.dumps(self.to_dict())
 
 
 class GreedyDecoder(Decoder):

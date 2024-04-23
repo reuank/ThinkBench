@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from jinja2 import Template
 
-from decoder import CompletionConfig, Decoder
+from completion import CompletionConfig
+from decoder import Decoder
 
 
 class PromptStep(ABC):
@@ -31,11 +32,14 @@ class PromptTemplateStep(PromptStep):
 
 
 class PromptCompletionStep(PromptStep):
+    name: str
     max_tokens: int
     max_logprobs: int
     decoder: Decoder
+    prefix: str
 
-    def __init__(self, max_tokens: int = 1, max_logprobs: int = 10, decoder: Decoder = None, prefix: str = ""):
+    def __init__(self, name: str, max_tokens: int = 1, max_logprobs: int = 10, decoder: Decoder = None, prefix: str = ""):
+        self.name = name
         self.completion_config = CompletionConfig(max_tokens=max_tokens, max_logprobs=max_logprobs)
         self.decoder = decoder
         self.prefix = prefix
@@ -62,29 +66,30 @@ class PromptChain:
     def __init__(self):
         self.steps: list[PromptStep] = []
 
-    def add_default_question_template(self):
+    def add_default_question_template(self) -> "PromptChain":
         self.add_template(self.default_question_template)
         return self
 
-    def add_default_answer_options_template(self):
+    def add_default_answer_options_template(self) -> "PromptChain":
         self.add_template(self.default_answer_option_template)
         return self
 
-    def add_newline(self):
+    def add_newline(self) -> "PromptChain":
         self.steps.append(PromptTextStep("\n"))
         return self
     
-    def add_template(self, template_string: str):
+    def add_template(self, template_string: str) -> "PromptChain":
         self.steps.append(PromptTemplateStep(template_string))
         return self
 
-    def add_text(self, context: str):
+    def add_text(self, context: str) -> "PromptChain":
         self.steps.append(PromptTextStep(context))
         return self
 
-    def get_completion(self, max_tokens: int = 1, max_logprobs: int = 10, decoder: Decoder = None, prefix: str = ""):
+    def get_completion(self, name: str, max_tokens: int = 1, max_logprobs: int = 10, decoder: Decoder = None, prefix: str = "") -> "PromptChain":
         self.steps.append(
             PromptCompletionStep(
+                name=name,
                 max_tokens=max_tokens,
                 max_logprobs=max_logprobs,
                 decoder=decoder,

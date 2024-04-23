@@ -1,4 +1,5 @@
 import os
+import string
 from abc import abstractmethod, ABC
 import time
 from typing import List, Dict
@@ -8,11 +9,11 @@ from llama_cpp import Llama, CreateCompletionResponse, LlamaGrammar
 from llama_cpp.llama_tokenizer import LlamaHFTokenizer
 
 from benchmark import SingleBenchmarkResult
-from completion_result import CompletionResult, Choice, Usage, Logprobs
-from decoder import CompletionConfig, GreedyConstrainedDecoder, Decoder
+from completion import CompletionResult, Choice, Usage, Logprobs, CompletionHistory, CompletionConfig
+from decoder import GreedyConstrainedDecoder, Decoder, GreedyDecoder, BeamSearch
 from dataset import SingleDataInstance
 from model import ModelConfig, HFModelConfig
-from prompt import PromptChain, PromptCompletionStep, PromptTemplateStep
+from prompt import PromptChain, PromptCompletionStep, PromptTemplateStep, PromptTextStep
 from testcase import TestCase, TestCaseResult
 
 
@@ -23,6 +24,9 @@ class MessageHistory:
 
     def __init__(self):
         self.messages = []
+
+    def __repr__(self):
+        return str(self.messages)
 
     def add_user_message(self, message: str):
         self.messages.append({"role": self.user_role, "content": message})
@@ -41,9 +45,6 @@ class MessageHistory:
         contents = [message["content"] for message in self.messages]
 
         return "\n".join(contents)
-
-    def __repr__(self):
-        return str(self.messages)
 
 
 class InferenceBackend(ABC):
@@ -69,7 +70,7 @@ class InferenceBackend(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def create_completion(self, prompt: str, completion_config: CompletionConfig, decoder: Decoder) -> CompletionResult:
+    def create_completion(self, prompt: str, completion_config: CompletionConfig, decoder: Decoder, substitute: bool = False, previous_completion_texts: Dict[str, str] = None) -> CompletionResult:
         raise NotImplementedError
 
     def run_test_case(self, test_case: TestCase, comment: str) -> TestCaseResult:
@@ -85,13 +86,14 @@ class InferenceBackend(ABC):
         progressbar.set_description("Benchmarking model")
 
         for single_test_data_instance in progressbar:
-            prompt_chain_results = []
+            prompt_chain_results: List[CompletionHistory] = []
 
             for prompt_chain in test_case.benchmark.prompt_chains(single_test_data_instance):
-                prompt_chain_results.append(self.execute_prompt_chain(prompt_chain, single_test_data_instance, test_case.use_chat_template))
+                prompt_chain_completion_history = self.execute_prompt_chain(prompt_chain, single_test_data_instance, test_case.use_chat_template)
+                prompt_chain_results.append(prompt_chain_completion_history)
 
-                single_result = test_case.benchmark.compute_single_result(single_test_data_instance, prompt_chain_results)
-                single_results.append(single_result)
+            single_result = test_case.benchmark.compute_single_result(single_test_data_instance, prompt_chain_results)
+            single_results.append(single_result)
 
         end_time = time.time()
 
@@ -126,16 +128,21 @@ class InferenceBackend(ABC):
             results=single_results
         )
 
-    def execute_prompt_chain(self, prompt_chain: PromptChain, single_data_instance: SingleDataInstance, use_chat_template: bool) -> List[CompletionResult]:
+    def execute_prompt_chain(self, prompt_chain: PromptChain, single_data_instance: SingleDataInstance, use_chat_template: bool) -> CompletionHistory:
         message_history = MessageHistory()
-        completion_history: List[CompletionResult] = []
+        completion_history = CompletionHistory()
 
         # print(prompt_chain)
 
         for prompt_step in prompt_chain.steps:
             prompt_step_type = type(prompt_step)
 
-            if prompt_step_type == PromptTemplateStep:
+            if prompt_step_type == PromptTextStep:
+                prompt_step: PromptTextStep
+                message = prompt_step.text
+                message_history.append_to_last_user_message(message)
+
+            elif prompt_step_type == PromptTemplateStep:
                 prompt_step: PromptTemplateStep
                 message = prompt_step.template.render(single_data_instance=single_data_instance)
                 message_history.append_to_last_user_message(message)
@@ -144,18 +151,33 @@ class InferenceBackend(ABC):
                 prompt_step: PromptCompletionStep
 
                 if use_chat_template:
-                    prompt = self.current_model_config.chat_template.render(
+                    unfilled_prompt = self.current_model_config.chat_template.render(
                         messages=message_history.messages,
                         add_generation_prompt=True
                     )
                 else:
-                    prompt = message_history.get_concatenated_messages()
+                    unfilled_prompt = message_history.get_concatenated_messages()
 
-                completion = self.create_completion(prompt, prompt_step.completion_config, prompt_step.decoder)
-                completion_history.append(completion)
+                previous_completion_texts = completion_history.get_texts()
 
-                message = str(completion.choices[0].text)
-                message_history.add_assistant_message(message)
+                completion_result = self.create_completion(
+                    prompt=unfilled_prompt,
+                    substitute=True,
+                    previous_completion_texts=previous_completion_texts,
+                    completion_config=prompt_step.completion_config,
+                    decoder=prompt_step.decoder
+                )
+
+                completion_history.add_completion(
+                    name=prompt_step.name,
+                    completion_result=completion_result,
+                    completion_config=prompt_step.completion_config,
+                    decoder=prompt_step.decoder
+                )
+
+                message = "${" + prompt_step.name + "}"
+                message_history.add_assistant_message(prompt_step.prefix + message if prompt_step.prefix else message)
+
             else:
                 raise ValueError(f"Prompt step type {prompt_step_type} not implemented.")
 
@@ -192,7 +214,7 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
 
         model_config: HFModelConfig
 
-        model_filename = f"{model_config.model_name}.Q4_K_M.gguf"
+        model_filename = f"{model_config.hf_filename}.Q4_K_M.gguf"
         model_path = f"{self.model_folder_path}/{model_filename}"
 
         if not os.path.isdir(self.model_folder_path):
@@ -245,14 +267,25 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
         # self.current_model_config.bos_token = special_tokens[0]
         # self.current_model_config.eos_token = special_tokens[1]
 
-    def create_completion(self, prompt: str, completion_config: CompletionConfig, decoder: Decoder) -> CompletionResult:
+    def create_completion(self, prompt: str, completion_config: CompletionConfig, decoder: Decoder, substitute: bool = False, previous_completion_texts: Dict[str, str] = None) -> CompletionResult:
         grammar = None
+        grammar_string = ""
+
+        if substitute:
+            try:
+                filled_prompt = string.Template(prompt).substitute(previous_completion_texts)
+            except ValueError:
+                raise ValueError("Provided prompt variables not correct.")
+        else:
+            filled_prompt = prompt
 
         if type(decoder) == GreedyConstrainedDecoder:
             decoder: GreedyConstrainedDecoder
 
+            grammar_string = self.get_grammar_string_from_labels(decoder.allowed_strings)
+
             grammar = LlamaGrammar.from_string(
-                grammar=self.get_grammar_string_from_labels(decoder.allowed_strings),
+                grammar=grammar_string,
                 verbose=False
             )
 
@@ -263,7 +296,7 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
             pass
 
         completion_response: CreateCompletionResponse = self.loaded_model.create_completion(
-            prompt=prompt,
+            prompt=filled_prompt,
             max_tokens=completion_config.max_tokens,
             temperature=completion_config.temperature,
             logprobs=completion_config.max_logprobs,
@@ -271,7 +304,7 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
             repeat_penalty=completion_config.repeat_penalty
         )
 
-        return self.__convert_completion_response(prompt, completion_response)
+        return self.__convert_completion_response(prompt if substitute else filled_prompt, completion_response)
 
     @staticmethod
     def __convert_completion_response(prompt: str, completion_response: CreateCompletionResponse) -> CompletionResult:

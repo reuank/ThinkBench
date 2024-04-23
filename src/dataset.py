@@ -65,10 +65,13 @@ class Dataset(ABC):
     def name(self):
         return self.__class__.__name__
 
-
     @staticmethod
     def load_dataset_by_name(dataset_name: str):
         return dataset_mapping[dataset_name]()
+
+    @staticmethod
+    def get_all_names():
+        return dataset_mapping.keys()
 
     @abstractmethod
     def load_dataset(self):
