@@ -23,7 +23,7 @@ class ModelConfig(ABC):
 
     @staticmethod
     def get_all_required_names():
-        return {k: v for k, v in model_mapping.items() if v.optional == True}.keys()
+        return {k: v for k, v in model_mapping.items() if v.optional is not True}.keys()
 
     @staticmethod
     def get_by_name(model_name: str):
