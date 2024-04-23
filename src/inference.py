@@ -167,7 +167,7 @@ class InferenceBackend(ABC):
 
 
 class LlamaCppPythonInferenceBackend(InferenceBackend):
-    loaded_model: Llama
+    loaded_model: Llama = None
     n_gpu_layers: int = 1000
     n_ctx: int = 8192
     n_batch: int = 1024
@@ -184,6 +184,9 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
             exit()
 
     def load_model_from_config(self, model_config: ModelConfig):
+        if self.loaded_model:
+            del self.loaded_model
+
         if not isinstance(model_config, HFModelConfig):
             raise ValueError("Only HF Models are supported by this inference backend")
 
