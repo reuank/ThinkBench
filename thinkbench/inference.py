@@ -207,9 +207,12 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
         # TODO: implement ensure_exists() function or python config file
         try:
             self.model_folder_path = os.environ.get("TB_MODEL_PATH")
-            Path(self.model_folder_path).mkdir(parents=True, exist_ok=True)
+            if not self.model_folder_path:
+                raise KeyError
+            else:
+                Path(self.model_folder_path).mkdir(parents=True, exist_ok=True)
         except KeyError:
-            print("Please specify a model path.")
+            print("Please specify a model path. Did you forget to source .env?")
             exit()
 
     def load_model_from_config(self, model_config: ModelConfig):

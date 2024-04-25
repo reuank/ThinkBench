@@ -31,11 +31,12 @@ class JsonFileStorage(StorageBackend):
         try:
             self.hostname = os.environ.get("TB_HOSTNAME")
             self.output_path = os.environ.get("TB_OUTPUT_PATH")
-            Path(self.output_path).mkdir(parents=True, exist_ok=True)
             if not self.hostname or not self.output_path:
                 raise KeyError
+            else:
+                Path(self.output_path).mkdir(parents=True, exist_ok=True)
         except KeyError:
-            print("Please specify an output path and a hostname.")
+            print("Please specify an output path and a hostname. Did you forget to source .env?")
             exit()
 
     def store(self, test_case_result: TestCaseResult):
