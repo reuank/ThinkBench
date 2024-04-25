@@ -3,15 +3,15 @@ from typing import List, Dict
 from transformers import AutoTokenizer
 from jinja2 import Template, FileSystemLoader, Environment
 
-from benchmark import NonCoTStandardBenchmark, CoTStandardBenchmark, Benchmark
-from dataset import SingleDataInstance
-from inference import MessageHistory
-from model import ModelConfig, HFModelConfig
-from prompt import PromptTemplateStep, PromptCompletionStep, PromptTextStep
+from thinkbench.benchmark import NonCoTStandardBenchmark, CoTStandardBenchmark, Benchmark
+from thinkbench.dataset import SingleDataInstance
+from thinkbench.inference import MessageHistory
+from thinkbench.model import ModelConfig, HFModelConfig
+from thinkbench.prompt import PromptTemplateStep, PromptCompletionStep, PromptTextStep
 
 
 def load_template(template_name: str) -> Template:
-    template_loader = FileSystemLoader(searchpath="./chat_templates")
+    template_loader = FileSystemLoader(searchpath="../chat_templates")
     template_env = Environment(loader=template_loader, trim_blocks=True, lstrip_blocks=True)
     template_file = f"{template_name}.jinja"
 
@@ -50,6 +50,8 @@ def test_template_on_benchmark(model_config: HFModelConfig, benchmark: Benchmark
     prompt_chains = benchmark.prompt_chains(single_data_instance=single_data_instance)
 
     generated_messages = convert_chain_to_messages(prompt_chains, single_data_instance)
+
+    #print(generated_messages)
 
     if add_system_message:
         generated_messages.insert(0, system_message)
@@ -90,7 +92,7 @@ def compare_my_and_hf(model_name: str):
     print("My Output:")
     print("=" * 50)
     my_output, hf_reference = test_template_on_benchmark(ModelConfig.get_by_name(model_name),
-                                                         CoTStandardBenchmark())
+                                                         CoTStandardBenchmark(), False)
     print(my_output)
     print("=" * 50)
     print("HF Reference:")
@@ -98,6 +100,7 @@ def compare_my_and_hf(model_name: str):
     print(hf_reference)
     print("=" * 50)
     print(f"Do they match? {my_output == hf_reference}")
+
 
 if __name__ == '__main__':
     benchmarks = [
@@ -108,5 +111,5 @@ if __name__ == '__main__':
     # get_hf_tokenizer_reference("meta-llama/Llama-2-7b-chat-hf", )
     # test_all_templates_with_many_benchmarks(benchmarks)
 
-    compare_my_and_hf("phi-2")
+    compare_my_and_hf("gemma-7b-it")
     #compare_my_and_hf("llama-2-7b-chat")

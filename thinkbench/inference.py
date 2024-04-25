@@ -1,7 +1,7 @@
 import os
 import string
 from abc import abstractmethod, ABC
-import time
+from pathlib import Path
 from typing import List, Dict
 from tqdm import tqdm
 
@@ -15,6 +15,7 @@ from dataset import SingleDataInstance
 from model import ModelConfig, HFModelConfig
 from prompt import PromptChain, PromptCompletionStep, PromptTemplateStep, PromptTextStep
 from testcase import TestCase, TestCaseResult
+from utils.timer import Timer
 
 
 class MessageHistory:
@@ -74,7 +75,7 @@ class InferenceBackend(ABC):
         raise NotImplementedError
 
     def run_test_case(self, test_case: TestCase, comment: str) -> TestCaseResult:
-        start_time = time.time()
+        Timer.get_instance("test_case").start_over()
 
         print(test_case.get_info())
 
@@ -95,8 +96,6 @@ class InferenceBackend(ABC):
             single_result = test_case.benchmark.compute_single_result(single_test_data_instance, prompt_chain_results)
             single_results.append(single_result)
 
-        end_time = time.time()
-
         metrics = test_case.benchmark.compute_metrics(single_results)
 
         try:
@@ -108,8 +107,10 @@ class InferenceBackend(ABC):
             hostname = ""
 
         print("="*45)
-        print(f"Execution took {round(time.time() - start_time, 2)} seconds.")
+        Timer.get_instance("test_case").end()
         print(f"Metrics: {metrics}.")
+
+        Timer.print_instances()
 
         return TestCaseResult(
             model=self.current_model_config.model_name,
@@ -120,9 +121,9 @@ class InferenceBackend(ABC):
             inference_backend=self.name,
             inference_backend_properties=self.get_backend_properties(),
             metrics=metrics,
-            start_time=start_time,
-            end_time=end_time,
-            execution_seconds=round(time.time() - start_time, 2),
+            start_time=Timer.get_instance("test_case").start_time,
+            end_time=Timer.get_instance("test_case").end_time,
+            execution_seconds=Timer.get_instance("test_case").elapsed_time,
             comment=comment,
             use_chat_template=test_case.use_chat_template,
             results=single_results
@@ -160,6 +161,8 @@ class InferenceBackend(ABC):
 
                 previous_completion_texts = completion_history.get_texts()
 
+                completion_timer_name = f"Completion Q={single_data_instance.id} Step={prompt_step.name}"
+                Timer.get_instance(completion_timer_name).start_over()
                 completion_result = self.create_completion(
                     prompt=unfilled_prompt,
                     substitute=True,
@@ -167,6 +170,7 @@ class InferenceBackend(ABC):
                     completion_config=prompt_step.completion_config,
                     decoder=prompt_step.decoder
                 )
+                Timer.get_instance(completion_timer_name).end()
 
                 completion_history.add_completion(
                     name=prompt_step.name,
@@ -194,13 +198,13 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
     n_ctx: int = 8192
     n_batch: int = 1024
     logits_all: bool = True
-    verbose: bool = False
+    verbose: bool = True
 
     def __init__(self):
+        # TODO: implement ensure_exists() function or python config file
         try:
             self.model_folder_path = os.environ.get("TB_MODEL_PATH")
-            if not self.model_folder_path:
-                raise KeyError
+            Path(self.model_folder_path).mkdir(parents=True, exist_ok=True)
         except KeyError:
             print("Please specify a model path.")
             exit()
@@ -214,7 +218,7 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
 
         model_config: HFModelConfig
 
-        model_filename = f"{model_config.hf_filename}.Q4_K_M.gguf"
+        model_filename = model_config.hf_filename
         model_path = f"{self.model_folder_path}/{model_filename}"
 
         if not os.path.isdir(self.model_folder_path):
@@ -243,7 +247,7 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
         else:
             tokenizer = None  # Defaults to LlamaTokenizer
 
-        start_model_load = time.time()
+        Timer.get_instance(f"Load {model_filename}").start_over()
         self.loaded_model: Llama = Llama(
             model_path=model_path,
             n_gpu_layers=self.n_gpu_layers,
@@ -253,9 +257,7 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
             tokenizer=tokenizer,
             verbose=self.verbose
         )
-        end_model_load = time.time()
-
-        print(f"Model {model_filename} loaded in {round(end_model_load - start_model_load, 2)} seconds.")
+        Timer.get_instance(f"Load {model_filename}").end()
 
         self.current_model_config = model_config
 
@@ -269,7 +271,6 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
 
     def create_completion(self, prompt: str, completion_config: CompletionConfig, decoder: Decoder, substitute: bool = False, previous_completion_texts: Dict[str, str] = None) -> CompletionResult:
         grammar = None
-        grammar_string = ""
 
         if substitute:
             try:
@@ -352,4 +353,3 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
             "logits_all": self.logits_all,
             "verbose": self.verbose
         }
-

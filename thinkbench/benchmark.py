@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import TypedDict, Dict, List, Optional, Any
+from typing import TypedDict, Dict, List
 
 from dataset import SingleDataInstance
 from decoder import GreedyConstrainedDecoder, GreedyDecoder

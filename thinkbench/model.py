@@ -1,5 +1,6 @@
+import pathlib
 from abc import ABC
-from typing import List, Dict
+from typing import Dict
 from jinja2 import Template, FileSystemLoader, Environment
 
 
@@ -11,7 +12,7 @@ class ModelConfig(ABC):
 
     @staticmethod
     def load_template(template_name: str) -> Template:
-        template_loader = FileSystemLoader(searchpath="./chat_templates")
+        template_loader = FileSystemLoader(searchpath=pathlib.Path(__file__).parent.resolve() / "chat_templates")
         template_env = Environment(loader=template_loader, trim_blocks=True, lstrip_blocks=True)
         template_file = f"{template_name}.jinja"
 
@@ -35,6 +36,7 @@ class HFModelConfig(ModelConfig):
     hf_filename: str = ""
     hf_tokenizer: str = ""
     use_hf_tokenizer: bool
+    file_extension: str = "Q4_K_M.gguf"
 
     def __init__(self, model_name: str, chat_template_name: str, hf_repo: str, hf_tokenizer: str, use_hf_tokenizer: bool, hf_filename: str = "", optional: bool = False):
         self.model_name = model_name
@@ -42,9 +44,9 @@ class HFModelConfig(ModelConfig):
         self.chat_template = self.load_template(chat_template_name)
         self.hf_repo = hf_repo
         if hf_filename:
-            self.hf_filename = hf_filename
+            self.hf_filename = f"{hf_filename}.{self.file_extension}"
         else:
-            self.hf_filename = self.model_name
+            self.hf_filename = f"{self.model_name}.{self.file_extension}"
         self.hf_tokenizer = hf_tokenizer
         self.use_hf_tokenizer = use_hf_tokenizer
         self.optional = optional

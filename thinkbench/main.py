@@ -95,7 +95,7 @@ prompt_templates = {
     },
     "non-cot-explicit-instruction": {
         "template": Template(
-            "${begin_question}Question: ${question} \n"
+            "${begin_question} Question: ${question} \n"
             "Answer Choices: ${options}"
             "Just answer with the correct label, without any brackets or spaces. \n"
             "Among ${first_label} through ${last_label}, the correct answer is: ${model_handoff} "
@@ -185,7 +185,7 @@ def benchmark_single_model_in_process(
 
         question_id_in_dataset = start_id+question_id
 
-        question_id_string = dataset['id'][question_id_in_dataset]
+        question_id_string = str(dataset['id'][question_id_in_dataset])
         choices = dataset['choices'][question_id_in_dataset]
         labels = choices['label']  # [A, B, C, D]
         answers = choices['text']
@@ -526,6 +526,30 @@ def benchmark_all_models(
     print("=" * 70)
     end_tests = time.time()
     print(f"All tests took {int((end_tests - start_tests) / 60)} minutes {int((end_tests - start_tests) % 60)} seconds.")
+    print("=" * 70)
+
+
+def benchmark_all_models_with_all_prompt_templates(max_questions: int = -1, comment: str = ""):
+    start_tests = time.time()
+
+    for model_name in models:
+        print("=" * 70)
+        print("=" * 70)
+
+        for prompt_template_name in prompt_templates:
+            benchmark_single_model_in_process(
+                model_name=model_name,
+                limit=max_questions,
+                log_result=True,
+                comment=comment,
+                prompt_template_name=prompt_template_name
+            )
+        print("=" * 70)
+
+    print("=" * 70)
+    end_tests = time.time()
+    print(
+        f"All tests took {int((end_tests - start_tests) / 60)} minutes {int((end_tests - start_tests) % 60)} seconds.")
     print("=" * 70)
 
 

@@ -2,6 +2,7 @@ import json
 import os
 from abc import ABC, abstractmethod
 import datetime
+from pathlib import Path
 
 from numpy import float32
 
@@ -30,10 +31,11 @@ class JsonFileStorage(StorageBackend):
         try:
             self.hostname = os.environ.get("TB_HOSTNAME")
             self.output_path = os.environ.get("TB_OUTPUT_PATH")
+            Path(self.output_path).mkdir(parents=True, exist_ok=True)
             if not self.hostname or not self.output_path:
                 raise KeyError
         except KeyError:
-            print("Please specify the necessary environment variables.")
+            print("Please specify an output path and a hostname.")
             exit()
 
     def store(self, test_case_result: TestCaseResult):
