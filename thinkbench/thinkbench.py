@@ -26,11 +26,11 @@ class ThinkBench:
             comment
         )
 
-        Timer.set_verbosity(processed_arguments["verbose"])
+        Timer.set_verbosity(processed_arguments["verbose"])  # TODO: make verbosity controllable globally via config
         Timer.get_instance("Run all").start_over()
 
         inference_backend: InferenceBackend = InferenceBackend.get_by_name(processed_arguments["inference_backend"])
-        inference_backend.set_verbosity(processed_arguments["verbose"])
+        inference_backend.set_verbosity(processed_arguments["verbose"])  # TODO: make verbosity controllable globally via config
 
         storage_backend: StorageBackend = JsonFileStorage()
 
@@ -65,6 +65,7 @@ class ThinkBench:
         print("=" * 45)
         print("=" * 45)
         Timer.get_instance("Run all").end()
+        # Timer.print_instances()
 
     @staticmethod
     def process_arguments(models, datasets, inference_backend, benchmarks, limit, labels, use_chat_template, verbose, comment):

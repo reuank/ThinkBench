@@ -1,7 +1,17 @@
 import json
 from typing import List, Dict
 
+from numpy import float32
+
 from decoder import Decoder
+
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, float32):
+            return float(obj)
+        else:
+            return obj.__dict__
 
 
 class CompletionConfig:
@@ -19,7 +29,7 @@ class CompletionConfig:
         self.repeat_penalty = repeat_penalty
 
     def __repr__(self):
-        return json.dumps(self, default=lambda o: o.__dict__, indent=4)
+        return json.dumps(self, cls=NumpyEncoder, indent=2)
 
 
 class Logprobs:
@@ -56,12 +66,23 @@ class Choice:
 
 class Usage:
     prompt_tokens: int
+    prompt_tokens_per_second: float
+    prompt_ms: float
     completion_tokens: int
+    completion_tokens_per_second: float
+    completion_ms: float
     total_tokens: int
 
-    def __init__(self, prompt_tokens: int, completion_tokens: int, total_tokens: int) -> None:
+    def __init__(self, prompt_tokens: int, prompt_tokens_per_second: float, prompt_ms: float, completion_tokens: int,
+                 completion_tokens_per_second: float, completion_ms: float, total_tokens: int) -> None:
         self.prompt_tokens = prompt_tokens
+        self.prompt_tokens_per_second = prompt_tokens_per_second
+        self.prompt_ms = prompt_ms
+
         self.completion_tokens = completion_tokens
+        self.completion_tokens_per_second = completion_tokens_per_second
+        self.completion_ms = completion_ms
+
         self.total_tokens = total_tokens
 
     def __repr__(self):
