@@ -51,6 +51,7 @@ class MessageHistory:
 class InferenceBackend(ABC):
     current_model_config: ModelConfig
     loaded_model: None
+    verbose: bool = False
 
     @property
     def name(self):
@@ -73,6 +74,9 @@ class InferenceBackend(ABC):
     @abstractmethod
     def create_completion(self, prompt: str, completion_config: CompletionConfig, decoder: Decoder, substitute: bool = False, previous_completion_texts: Dict[str, str] = None) -> CompletionResult:
         raise NotImplementedError
+
+    def set_verbosity(self, verbose: bool):
+        self.verbose = verbose
 
     def run_test_case(self, test_case: TestCase, comment: str) -> TestCaseResult:
         Timer.get_instance("test_case").start_over()
@@ -198,7 +202,6 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
     n_ctx: int = 8192
     n_batch: int = 1024
     logits_all: bool = True
-    verbose: bool = True
 
     def __init__(self):
         # TODO: implement ensure_exists() function or python config file

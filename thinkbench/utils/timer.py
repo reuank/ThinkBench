@@ -5,15 +5,18 @@ from typing import Dict
 
 
 class Timer:
+    verbose: bool = False
     _instances: Dict[str, "_Timer"] = {}
 
-    class _Timer:
-        time_format: str = "%d.%m.%Y %H:%M:%S"
-        name: str
+    @classmethod
+    def set_verbosity(cls, verbose: bool):
+        cls.verbose = verbose
 
-        def __init__(self, name):
+    class _Timer:
+        def __init__(self, name: str, verbose: bool):
             self.time_format: str = "%d.%m.%Y %H:%M:%S"
             self.print_prefix: str = "###"
+            self.verbose: bool = verbose
             self.name: str = name
             self.start_time: float = 0.0
             self.end_time: float = 0.0
@@ -22,19 +25,22 @@ class Timer:
 
         def start_over(self):
             if self.ran_before:
-                self.__init__(self.name)
-                print(f"\n{self.print_prefix} Timer {self.name.upper()} restarted.")
+                self.__init__(self.name, self.verbose)
+                if self.verbose:
+                    print(f"\n{self.print_prefix} Timer {self.name.upper()} restarted.")
                 self.start_over()
             else:
                 self.start_time = time.time()
                 self.ran_before = True
-                print(f"{self.print_prefix} {self.name.upper()} timer started at {datetime.fromtimestamp(self.start_time).strftime(self.time_format)}.")
+                if self.verbose:
+                    print(f"{self.print_prefix} {self.name.upper()} timer started at {datetime.fromtimestamp(self.start_time).strftime(self.time_format)}.")
 
         def end(self):
             if self.ran_before:
                 self.end_time = time.time()
                 self.elapsed_time = round(self.end_time - self.start_time, 2)
-                print(f"{self.print_prefix} {self.name.upper()} timer ended at {datetime.fromtimestamp(self.end_time).strftime(self.time_format)} took {self.elapsed_time} seconds.")
+                if self.verbose:
+                    print(f"{self.print_prefix} {self.name.upper()} timer ended at {datetime.fromtimestamp(self.end_time).strftime(self.time_format)} and took {self.elapsed_time} seconds.")
 
         def to_dict(self):
             return {
@@ -47,7 +53,7 @@ class Timer:
     @classmethod
     def get_instance(cls, name) -> _Timer:
         if name not in cls._instances:
-            cls._instances[name] = cls._Timer(name)
+            cls._instances[name] = cls._Timer(name, cls.verbose)
         return cls._instances[name]
 
     @classmethod

@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Any
 
 import fire
 
@@ -13,10 +13,8 @@ from utils.timer import Timer
 
 class ThinkBench:
     @staticmethod
-    def run_benchmarks(models, datasets, inference_backend="default", benchmarks="default", limit=-1, labels="unchanged", use_chat_template=False, comment=""):
-        Timer.get_instance("Run all").start_over()
-
-        processed_arguments: Dict[str, List] = ThinkBench.process_arguments(
+    def run_benchmarks(models, datasets, inference_backend="default", benchmarks="default", limit=-1, labels="unchanged", use_chat_template=False, verbose=False, comment=""):
+        processed_arguments: Dict[str, Any] = ThinkBench.process_arguments(
             models,
             datasets,
             inference_backend,
@@ -24,10 +22,16 @@ class ThinkBench:
             limit,
             labels,
             use_chat_template,
+            verbose,
             comment
         )
 
+        Timer.set_verbosity(processed_arguments["verbose"])
+        Timer.get_instance("Run all").start_over()
+
         inference_backend: InferenceBackend = InferenceBackend.get_by_name(processed_arguments["inference_backend"])
+        inference_backend.set_verbosity(processed_arguments["verbose"])
+
         storage_backend: StorageBackend = JsonFileStorage()
 
         cached_datasets: Dict[str, Dataset] = {}
@@ -63,7 +67,7 @@ class ThinkBench:
         Timer.get_instance("Run all").end()
 
     @staticmethod
-    def process_arguments(models, datasets, inference_backend, benchmarks, limit, labels, use_chat_template, comment):
+    def process_arguments(models, datasets, inference_backend, benchmarks, limit, labels, use_chat_template, verbose, comment):
         def _ensure_list(parameter: str | List[str]) -> List[str]:
             if type(parameter) == str:
                 parameter = [parameter]
@@ -86,6 +90,7 @@ class ThinkBench:
             "limit": limit,
             "labels": labels,
             "use_chat_template": use_chat_template,
+            "verbose": verbose,
             "comment": comment
         }
 
