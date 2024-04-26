@@ -439,9 +439,6 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         time.sleep(3)
         Timer.get_instance(f"Load {model_config.hf_filename}").end(print_out=True)
 
-        server_properties = self.session.get(url=self.properties_url, headers=self.headers).json()
-        print(json.dumps(server_properties, indent=2))
-
         self.current_model_config = model_config
 
     def _run_test_case_subset(self, test_case: TestCase, thread_id: int, test_data_subset: List[SingleDataInstance], output_queue: Queue):
@@ -482,7 +479,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
                 chunks.append(data[start:end])
                 start = end
 
-            print(f"{chunk_size=} {[len(chunk) for chunk in chunks]=}")
+            # print(f"{chunk_size=} {[len(chunk) for chunk in chunks]=}")
 
             return chunks
 
@@ -631,5 +628,4 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         # return f"root   ::= [ ]? option \noption ::= ({'|'.join(labels_with_quotes)})"
 
     def get_backend_properties(self) -> Dict[str, str]:
-        # TODO: Implement
-        return {}
+        return self.session.get(url=self.properties_url, headers=self.headers).json()

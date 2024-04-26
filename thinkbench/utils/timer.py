@@ -39,7 +39,7 @@ class Timer:
             if self.ran_before:
                 self.end_time = time.time()
                 self.elapsed_time = round(self.end_time - self.start_time, 2)
-                if self.verbose or print:
+                if self.verbose or print_out:
                     print(f"{self.print_prefix} {self.name.upper()} timer ended at {datetime.fromtimestamp(self.end_time).strftime(self.time_format)} and took {self.elapsed_time} seconds.")
 
         def to_dict(self):
