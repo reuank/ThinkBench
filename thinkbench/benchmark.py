@@ -75,7 +75,7 @@ class LabelGenerationBenchmarkType(Benchmark, ABC):
     def compute_metrics(self, all_results: List[SingleBenchmarkResult]) -> Dict:
         total_results = len(all_results)
         num_correct = len(list(filter(lambda item: item["is_correct"], all_results)))
-        accuracy = round(num_correct / total_results, 2) * 100
+        accuracy = round(num_correct * 100 / total_results, 2)
 
         return {
             "total_results": total_results,
