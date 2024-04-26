@@ -403,6 +403,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
                 self.n_parallel = int(n_parallel)
         except KeyError:
             print("Please specify a model path. Did you forget to source .env?")
+            print("Please specify the number of server slots. Did you forget to source .env?")
             exit()
 
         self.session: Session = Session()
@@ -438,7 +439,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         self.current_model_config = model_config
 
     def _run_test_case_subset(self, test_case: TestCase, thread_id: int, test_data_subset: List[SingleDataInstance], output_queue: Queue):
-        print(f"Thread {thread_id} starting...")
+        # print(f"Thread {thread_id} starting...")
 
         progressbar = tqdm(test_data_subset)
         progressbar.set_description(f"Benchmarking model on Thread {thread_id}")
