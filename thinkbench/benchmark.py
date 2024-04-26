@@ -130,7 +130,7 @@ class CoTStandardBenchmark(LabelGenerationBenchmarkType):
                 .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
                               "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer?\n\n")
                 .add_text("Let's think step by step.")
-                .get_completion(max_tokens=2048, decoder=GreedyDecoder(), prefix="Reasoning: ", name="reasoning")
+                .get_completion(max_tokens=2048, max_logprobs=1, decoder=GreedyDecoder(), prefix="Reasoning: ", name="reasoning")
                 .add_text("Given this reasoning, the correct answer is: ")
                 .get_completion(decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels), name="label")
         ]
