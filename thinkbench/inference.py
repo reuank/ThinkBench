@@ -285,8 +285,12 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
             prompt_chain_results: List[CompletionHistory] = []
 
             for prompt_chain in test_case.benchmark.prompt_chains(single_test_data_instance):
-                prompt_chain_completion_history = self.execute_prompt_chain(prompt_chain, single_test_data_instance,
-                                                                            test_case.use_chat_template)
+                prompt_chain_completion_history = self.execute_prompt_chain(
+                    prompt_chain=prompt_chain,
+                    single_data_instance=single_test_data_instance,
+                    use_chat_template=test_case.use_chat_template,
+                    additional_params={}
+                )
                 prompt_chain_results.append(prompt_chain_completion_history)
 
             single_result = test_case.benchmark.compute_single_result(single_test_data_instance, prompt_chain_results)
@@ -380,7 +384,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     n_gpu_layers: int = 1000
     n_ctx: int = 8192
     n_batch: int = 2048
-    n_parallel: int = 1
+    n_parallel: int
 
     process: Popen = None
     completion_url = "http://localhost:8080/completion"
@@ -390,11 +394,13 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         # TODO: implement ensure_exists() function or python config file
         try:
             model_folder_path_str = os.environ.get("TB_MODEL_PATH")
-            if not model_folder_path_str:
+            n_parallel = os.environ.get("TB_LLAMA_CPP_SERVER_SLOTS")
+            if not model_folder_path_str or not n_parallel:
                 raise KeyError
             else:
                 self.model_folder_path: Path = Path(model_folder_path_str)
                 self.model_folder_path.mkdir(parents=True, exist_ok=True)
+                self.n_parallel = int(n_parallel)
         except KeyError:
             print("Please specify a model path. Did you forget to source .env?")
             exit()
@@ -480,7 +486,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         while not output_queue.empty():
             all_results.append(output_queue.get())
 
-        all_results.sort(key=lambda single_result: single_result.id)
+        all_results.sort(key=lambda single_result: single_result.question_id)
 
         return all_results
 
