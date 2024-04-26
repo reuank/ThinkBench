@@ -4,7 +4,7 @@ import fire
 
 from benchmark import Benchmark
 from dataset import Dataset, Numbering
-from inference import InferenceBackend, ModelConfig
+from inference import InferenceBackend, ModelConfig, LlamaCppServerInferenceBackend
 from storage import StorageBackend, JsonFileStorage
 
 from testcase import TestCase, TestCaseResult
@@ -37,7 +37,7 @@ class ThinkBench:
         cached_datasets: Dict[str, Dataset] = {}
 
         for model_name in processed_arguments["model_names"]:  # implement ensure_list
-            print("\n")
+            print("")
             print("=" * (41 + len(model_name)))
             print("=" * 10 + f" Benchmarking model {model_name} " + "=" * 10)
             print("=" * (41 + len(model_name)))
@@ -65,7 +65,11 @@ class ThinkBench:
 
         print("=" * 45)
         print("=" * 45)
-        Timer.get_instance("Run all").end()
+        Timer.get_instance("Run all").end(print_out=True)
+
+        if isinstance(inference_backend, LlamaCppServerInferenceBackend):
+            inference_backend.terminate_all_running_servers()
+
         # Timer.print_instances()
 
     @staticmethod

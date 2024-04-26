@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import signal
 import string
 import threading
 import time
@@ -10,6 +11,7 @@ from queue import Queue
 from subprocess import Popen
 from typing import List, Dict, Any
 
+import psutil
 from requests import Session
 from tqdm import tqdm
 
@@ -22,7 +24,6 @@ from decoder import GreedyConstrainedDecoder, Decoder, GreedyDecoder, BeamSearch
 from dataset import SingleDataInstance
 from model import ModelConfig, HFModelConfig
 from prompt import PromptChain, PromptCompletionStep, PromptTemplateStep, PromptTextStep
-from storage import TotalResultEncoder
 from testcase import TestCase, TestCaseResult
 from utils.timer import Timer
 
@@ -413,10 +414,11 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     def load_model_from_config(self, model_config: ModelConfig):
         import subprocess
 
+        print("Terminating any old server processes...")
         if self.process:
             self.process.terminate()
-            print("Terminating the old server process...")
-            time.sleep(3)
+        self.terminate_all_running_servers()
+        time.sleep(2)
 
         if not isinstance(model_config, HFModelConfig):
             raise ValueError("Only HF Models are supported by this inference backend")
@@ -425,6 +427,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
 
         InferenceBackend.ensure_hf_model_is_downloaded(local_path=self.model_folder_path, hf_repo=model_config.hf_repo, model_filename=model_config.hf_filename)
 
+        # spawn a new server
         Timer.get_instance(f"Load {model_config.hf_filename}").start_over(print_out=True)
         self.process = subprocess.Popen([
             "../../llama.cpp/server",
@@ -437,6 +440,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             "--log-disable"
         ], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         time.sleep(3)
+        print(f"Currently loaded model on the available server: {self.get_backend_properties()['default_generation_settings']['model']}")
         Timer.get_instance(f"Load {model_config.hf_filename}").end(print_out=True)
 
         self.current_model_config = model_config
@@ -629,3 +633,18 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
 
     def get_backend_properties(self) -> Dict[str, str]:
         return self.session.get(url=self.properties_url, headers=self.headers).json()
+
+    @staticmethod
+    def terminate_all_running_servers():
+        program_name = "llama.cpp/server"
+
+        """ Kills all processes that contain the program_name in their executable path. """
+        for proc in psutil.process_iter(['pid', 'name', 'exe']):
+            try:
+                # Check if process name or the executable matches the program name
+                if program_name in proc.info['name'] or (proc.info['exe'] and program_name in proc.info['exe']):
+                    print(f"Killing process {proc.info['name']} with PID {proc.info['pid']}")
+                    proc.send_signal(signal.SIGTERM)  # or proc.terminate()
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass  # Process has been killed or can't be accessed
+
