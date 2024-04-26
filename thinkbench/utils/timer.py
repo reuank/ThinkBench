@@ -23,23 +23,23 @@ class Timer:
             self.elapsed_time: float = 0
             self.ran_before: bool = False
 
-        def start_over(self):
+        def start_over(self, print_out: bool = False):
             if self.ran_before:
                 self.__init__(self.name, self.verbose)
-                if self.verbose:
+                if self.verbose or print_out:
                     print(f"\n{self.print_prefix} Timer {self.name.upper()} restarted.")
                 self.start_over()
             else:
                 self.start_time = time.time()
                 self.ran_before = True
-                if self.verbose:
+                if self.verbose or print_out:
                     print(f"{self.print_prefix} {self.name.upper()} timer started at {datetime.fromtimestamp(self.start_time).strftime(self.time_format)}.")
 
-        def end(self):
+        def end(self, print_out: bool = False):
             if self.ran_before:
                 self.end_time = time.time()
                 self.elapsed_time = round(self.end_time - self.start_time, 2)
-                if self.verbose:
+                if self.verbose or print:
                     print(f"{self.print_prefix} {self.name.upper()} timer ended at {datetime.fromtimestamp(self.end_time).strftime(self.time_format)} and took {self.elapsed_time} seconds.")
 
         def to_dict(self):

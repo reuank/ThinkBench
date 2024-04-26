@@ -388,6 +388,8 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
 
     process: Popen = None
     completion_url = "http://localhost:8080/completion"
+    properties_url = "http://localhost:8080/props"
+
     headers = {'content-type': 'application/json'}
 
     def __init__(self):
@@ -412,7 +414,9 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         import subprocess
 
         if self.process:
-            self.process.kill()
+            self.process.terminate()
+            print("Terminating the old server process...")
+            time.sleep(3)
 
         if not isinstance(model_config, HFModelConfig):
             raise ValueError("Only HF Models are supported by this inference backend")
@@ -421,8 +425,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
 
         InferenceBackend.ensure_hf_model_is_downloaded(local_path=self.model_folder_path, hf_repo=model_config.hf_repo, model_filename=model_config.hf_filename)
 
-        Timer.get_instance(f"Load {model_config.hf_filename}").start_over()
-
+        Timer.get_instance(f"Load {model_config.hf_filename}").start_over(print_out=True)
         self.process = subprocess.Popen([
             "../../llama.cpp/server",
             "-m", str(self.model_folder_path/model_config.hf_filename),
@@ -434,7 +437,10 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             "--log-disable"
         ], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         time.sleep(3)
-        Timer.get_instance(f"Load {model_config.hf_filename}").end()
+        Timer.get_instance(f"Load {model_config.hf_filename}").end(print_out=True)
+
+        server_properties = self.session.get(url=self.properties_url, headers=self.headers).json()
+        print(json.dumps(server_properties, indent=2))
 
         self.current_model_config = model_config
 
@@ -518,6 +524,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             "n_probs": completion_config.max_logprobs,
             "temperature": completion_config.temperature,
             "samplers": ["temperature"],
+            "seed": 1234,
             "repeat_last_n": 0,
             "min_p": 0.0,
             "top_p": 1.0,

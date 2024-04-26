@@ -37,6 +37,7 @@ class ThinkBench:
         cached_datasets: Dict[str, Dataset] = {}
 
         for model_name in processed_arguments["model_names"]:  # implement ensure_list
+            print("\n")
             print("=" * (41 + len(model_name)))
             print("=" * 10 + f" Benchmarking model {model_name} " + "=" * 10)
             print("=" * (41 + len(model_name)))
