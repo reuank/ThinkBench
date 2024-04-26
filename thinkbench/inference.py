@@ -439,8 +439,6 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         self.current_model_config = model_config
 
     def _run_test_case_subset(self, test_case: TestCase, thread_id: int, test_data_subset: List[SingleDataInstance], output_queue: Queue):
-        # print(f"Thread {thread_id} starting...")
-
         progressbar = tqdm(test_data_subset)
         progressbar.set_description(f"Benchmarking model on Thread {thread_id}")
 
@@ -465,15 +463,24 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         threads = []
         output_queue = Queue()
 
-        # Split data into chunks for each process
-        chunk_size = len(test_data_instances) // self.n_parallel
-        chunks = [test_data_instances[i * chunk_size:(i + 1) * chunk_size] for i in range(self.n_parallel)]
+        def distribute_chunks(data, num_threads):
+            n = len(data)
+            chunk_size = n // num_threads
+            remainder = n % num_threads
 
-        # Handle any remaining instances in the last chunk
-        if len(test_data_instances) % self.n_parallel:
-            chunks[-1].extend(test_data_instances[self.n_parallel * chunk_size:])
+            chunks = []
+            start = 0
 
-        print(f"{chunk_size=} {[len(chunk) for chunk in chunks]=}")
+            for thread_id in range(num_threads):
+                end = start + chunk_size + (1 if thread_id < remainder else 0)
+                chunks.append(data[start:end])
+                start = end
+
+            print(f"{chunk_size=} {[len(chunk) for chunk in chunks]=}")
+
+            return chunks
+
+        chunks = distribute_chunks(data=test_data_instances, num_threads=self.n_parallel)
 
         for i in range(self.n_parallel):
             thread = threading.Thread(target=self._run_test_case_subset, args=(test_case, i, chunks[i], output_queue))
