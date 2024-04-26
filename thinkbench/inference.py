@@ -486,7 +486,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         while not output_queue.empty():
             all_results.append(output_queue.get())
 
-        all_results.sort(key=lambda single_result: single_result.question_id)
+        all_results.sort(key=lambda single_result: single_result["question_id"])
 
         return all_results
 
