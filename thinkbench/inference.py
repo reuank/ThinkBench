@@ -384,8 +384,9 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
 class LlamaCppServerInferenceBackend(InferenceBackend):
     n_gpu_layers: int = 1000
     n_ctx: int = 8192
-    n_batch: int = 2048
-    n_parallel: int
+    n_batch: int = 4096
+    n_parallel: int = 1
+    continuous_batching: bool = True
 
     process: Popen = None
     completion_url = "http://localhost:8080/completion"
@@ -405,6 +406,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
                 self.model_folder_path: Path = Path(model_folder_path_str)
                 self.model_folder_path.mkdir(parents=True, exist_ok=True)
                 self.n_parallel = int(n_parallel)
+                self.n_ctx = self.n_parallel * 4096
                 self.server_binary_path: Path = Path(server_binary_path)
         except KeyError:
             print("Please specify a model path. Did you forget to source .env?")
@@ -438,20 +440,17 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             "-c", str(self.n_ctx),
             "-ngl", str(self.n_gpu_layers),
             "-np", str(self.n_parallel),
-            "-cb",
+            "-cb" if self.continuous_batching else "",
             "--log-disable"
         ], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         time.sleep(3)
-        print(f"Currently loaded model on the available server: {self.get_backend_properties()['default_generation_settings']['model']}")
+        print(f"Currently loaded model on the available server: {self.get_backend_properties()['loaded_model']}")
         Timer.get_instance(f"Load {model_config.hf_filename}").end(print_out=True)
 
         self.current_model_config = model_config
 
-    def _run_test_case_subset(self, test_case: TestCase, thread_id: int, test_data_subset: List[SingleDataInstance], output_queue: Queue):
-        progressbar = tqdm(test_data_subset)
-        progressbar.set_description(f"Benchmarking model on Thread {thread_id}")
-
-        for single_test_data_instance in progressbar:
+    def _run_test_case_subset(self, test_case: TestCase, thread_id: int, test_data_subset: List[SingleDataInstance], output_queue: Queue, shared_progressbar: tqdm):
+        for single_test_data_instance in test_data_subset:
             prompt_chain_results = []
 
             for prompt_chain in test_case.benchmark.prompt_chains(single_test_data_instance):
@@ -467,6 +466,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
 
             single_result = test_case.benchmark.compute_single_result(single_test_data_instance, prompt_chain_results)
             output_queue.put(single_result)
+            shared_progressbar.update(1)
 
     def _run_test_case(self, test_case: TestCase, test_data_instances: List[SingleDataInstance]) -> List[SingleBenchmarkResult]:
         threads = []
@@ -490,14 +490,17 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             return chunks
 
         chunks = distribute_chunks(data=test_data_instances, num_threads=self.n_parallel)
+        shared_progressbar = tqdm(total=len(test_data_instances), desc=f"Benchmarking model on {self.n_parallel} server slots.")
 
         for i in range(self.n_parallel):
-            thread = threading.Thread(target=self._run_test_case_subset, args=(test_case, i, chunks[i], output_queue))
+            thread = threading.Thread(target=self._run_test_case_subset, args=(test_case, i, chunks[i], output_queue, shared_progressbar))
             threads.append(thread)
             thread.start()
 
         for thread in threads:
             thread.join()
+
+        shared_progressbar.close()
 
         all_results: List[SingleBenchmarkResult] = []
         while not output_queue.empty():
@@ -634,18 +637,26 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         # return f"root   ::= [ ]? option \noption ::= ({'|'.join(labels_with_quotes)})"
 
     def get_backend_properties(self) -> Dict[str, str]:
-        return self.session.get(url=self.properties_url, headers=self.headers).json()
+        server_settings = self.session.get(url=self.properties_url, headers=self.headers).json()
 
-    @staticmethod
-    def terminate_all_running_servers():
-        program_name = "llama.cpp/server"
+        return {
+            "loaded_model": server_settings["default_generation_settings"]["model"],
+            "n_slots": server_settings["total_slots"],
+            "n_ctx_per_slot": server_settings["default_generation_settings"]["n_ctx"],
+            "batch_size": self.n_batch,
+            "n_gpu_layers": self.n_gpu_layers,
+            "continuous_batching": self.continuous_batching,
+        }
+
+    def terminate_all_running_servers(self):
+        program_name = str(self.server_binary_path)
 
         """ Kills all processes that contain the program_name in their executable path. """
         for proc in psutil.process_iter(['pid', 'name', 'exe']):
             try:
                 # Check if process name or the executable matches the program name
                 if program_name in proc.info['name'] or (proc.info['exe'] and program_name in proc.info['exe']):
-                    print(f"Killing process {proc.info['name']} with PID {proc.info['pid']}")
+                    print(f"Killing process '{proc.info['name']}' with PID {proc.info['pid']}")
                     proc.send_signal(signal.SIGTERM)  # or proc.terminate()
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass  # Process has been killed or can't be accessed
