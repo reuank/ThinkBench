@@ -3,7 +3,7 @@ from typing import List, Dict
 
 from numpy import float32
 
-from decoder import Decoder
+from decoder import Decoder, GreedyConstrainedDecoder
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -145,15 +145,17 @@ class CompletionHistory:
 
         return texts
 
-    def to_dict(self) -> Dict[str, Dict[str, str]]:
-        completions_dict: Dict[str, Dict[str, str]] = {}
+    def to_dict(self) -> Dict[str, Dict[str, str | Dict]]:
+        completions_dict: Dict[str, Dict[str, str | Dict]] = {}
 
         for k, v in self.completions.items():
             completions_dict[k] = {
-                "completion_result": v.completion_result.get_text(),
+                "completion_text": v.completion_result.get_text(),
                 "completion_config": v.completion_config,
                 "decoder": v.decoder
             }
+            if isinstance(v.decoder, GreedyConstrainedDecoder):
+                completions_dict[k]["logprobs"] = v.completion_result.choices[0].logprobs.top_logprobs[0]
 
         return completions_dict
 

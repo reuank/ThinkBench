@@ -13,12 +13,11 @@ class SingleBenchmarkResult(TypedDict):
     question: str
     answers: List[str]
     labels: List[str]
-    last_prompt: str
-    completions: List[CompletionHistory]
     model_choice: str
     correct_answer: str
     is_correct: bool
-    last_top_logprobs: Dict[str, float]
+    last_prompt: str
+    completions: List[CompletionHistory]
 
 
 class Benchmark(ABC):
@@ -55,7 +54,7 @@ class LabelGenerationBenchmarkType(Benchmark, ABC):
     def compute_single_result(self, single_data_instance: SingleDataInstance,
                               prompt_chain_results: List[CompletionHistory]) -> SingleBenchmarkResult:
         answer_label_completion = prompt_chain_results[0].completions["label"].completion_result
-        model_selection = answer_label_completion.get_most_probable_token()
+        model_selection = answer_label_completion.get_most_probable_token().strip()
         correct_answer_label = single_data_instance.answer_labels[single_data_instance.correct_key]
 
         return SingleBenchmarkResult(
@@ -64,12 +63,11 @@ class LabelGenerationBenchmarkType(Benchmark, ABC):
             question=single_data_instance.question,
             answers=single_data_instance.answer_texts,
             labels=single_data_instance.answer_labels,
-            last_prompt=answer_label_completion.prompt,
-            completions=prompt_chain_results,
-            model_choice=model_selection,
             correct_answer=correct_answer_label,
+            model_choice=model_selection,
             is_correct=self.is_equal(model_selection, correct_answer_label),
-            last_top_logprobs=answer_label_completion.choices[0].logprobs.top_logprobs[0]
+            last_prompt=answer_label_completion.prompt,
+            completions=prompt_chain_results
         )
 
     def compute_metrics(self, all_results: List[SingleBenchmarkResult]) -> Dict:
