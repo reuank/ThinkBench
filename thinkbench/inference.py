@@ -398,12 +398,14 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         try:
             model_folder_path_str = os.environ.get("TB_MODEL_PATH")
             n_parallel = os.environ.get("TB_LLAMA_CPP_SERVER_SLOTS")
-            if not model_folder_path_str or not n_parallel:
+            server_binary_path = os.environ.get("LLAMA_CPP_SERVER_BINARY")
+            if not model_folder_path_str or not n_parallel or not server_binary_path:
                 raise KeyError
             else:
                 self.model_folder_path: Path = Path(model_folder_path_str)
                 self.model_folder_path.mkdir(parents=True, exist_ok=True)
                 self.n_parallel = int(n_parallel)
+                self.server_binary_path: Path = Path(server_binary_path)
         except KeyError:
             print("Please specify a model path. Did you forget to source .env?")
             print("Please specify the number of server slots. Did you forget to source .env?")
@@ -430,7 +432,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         # spawn a new server
         Timer.get_instance(f"Load {model_config.hf_filename}").start_over(print_out=True)
         self.process = subprocess.Popen([
-            "../../llama.cpp/server",
+            str(self.server_binary_path),
             "-m", str(self.model_folder_path/model_config.hf_filename),
             "-b", str(self.n_batch),
             "-c", str(self.n_ctx),
