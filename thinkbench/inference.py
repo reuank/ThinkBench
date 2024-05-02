@@ -386,7 +386,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     n_ctx: int = 8192
     n_batch: int = 4096
     n_parallel: int = 1
-    continuous_batching: bool = True
+    continuous_batching: bool = False
 
     process: Popen = None
     completion_url = "http://localhost:8080/completion"
@@ -433,16 +433,19 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
 
         # spawn a new server
         Timer.get_instance(f"Load {model_config.hf_filename}").start_over(print_out=True)
-        self.process = subprocess.Popen([
+        server_process_arguments = [
             str(self.server_binary_path),
             "-m", str(self.model_folder_path/model_config.hf_filename),
             "-b", str(self.n_batch),
             "-c", str(self.n_ctx),
             "-ngl", str(self.n_gpu_layers),
             "-np", str(self.n_parallel),
-            "-cb" if self.continuous_batching else "",
             "--log-disable"
-        ], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        ]
+        if self.continuous_batching:
+            server_process_arguments.append("-cb")
+
+        self.process = subprocess.Popen(server_process_arguments, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         time.sleep(2)
         print(f"Currently loaded model on the available server: {self.get_backend_properties()['loaded_model']}")
         Timer.get_instance(f"Load {model_config.hf_filename}").end(print_out=True)
