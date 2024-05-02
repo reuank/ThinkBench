@@ -1,3 +1,4 @@
+import datetime
 from typing import List, Dict, Any
 
 import fire
@@ -60,11 +61,15 @@ class ThinkBench:
 
                 for benchmark_name in processed_arguments["benchmark_names"]:
                     benchmark: Benchmark = Benchmark.get_by_name(benchmark_name)
-
                     test_case: TestCase = TestCase(dataset, limit, label_numbering, benchmark, use_chat_template)  # num-fewshot # use chat templates
                     test_case_result: TestCaseResult = inference_backend.run_test_case(test_case, comment)
 
-                    metrics_list.append([test_case_result["model"], test_case_result["metrics"]["accuracy"]])
+                    metrics_list.append([
+                        test_case_result["model"],
+                        test_case_result["metrics"]["accuracy"],
+                        str(datetime.timedelta(seconds=test_case_result["execution_seconds"]))
+                    ])
+
                     storage_backend.store(test_case_result)
 
         print("=" * 45)
@@ -72,7 +77,7 @@ class ThinkBench:
 
         Timer.get_instance("Run all").end(print_out=True)
 
-        print(tabulate(metrics_list, headers=['Model', 'Accuracy'], tablefmt='outline'))
+        print(tabulate(metrics_list, headers=["Model", "Accuracy (%)", "Execution time"], tablefmt="outline"))
 
         if isinstance(inference_backend, LlamaCppServerInferenceBackend):
             inference_backend.terminate_all_running_servers()
