@@ -60,7 +60,7 @@ class LabelGenerationBenchmarkType(Benchmark, ABC):
     def compute_single_result(self, single_data_instance: SingleDataInstance,
                               prompt_chain_results: List[CompletionHistory]) -> SingleBenchmarkResult:
         answer_label_completion = prompt_chain_results[0].completions["label"].completion_result
-        model_selection = answer_label_completion.get_most_probable_token().strip()
+        model_selection = answer_label_completion.get_text().strip()
         correct_answer_label = single_data_instance.answer_labels[single_data_instance.correct_key]
 
         return SingleBenchmarkResult(

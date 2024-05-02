@@ -511,18 +511,6 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         return all_results
 
     def create_completion(self, prompt: str, completion_config: CompletionConfig, decoder: Decoder, additional_params: Dict[str, Any]) -> CompletionResult:
-        grammar_string = ""
-
-        if type(decoder) == GreedyConstrainedDecoder:
-            decoder: GreedyConstrainedDecoder
-            grammar_string = self.get_grammar_string_from_labels(decoder.allowed_strings)
-
-        if type(decoder) == GreedyDecoder:  # TODO
-            pass
-
-        if type(decoder) == BeamSearch:  # TODO
-            pass
-
         request = {
             "prompt": prompt,
             "id_slot": additional_params["id_slot"],  # ensure that a thread only uses its own server slot
@@ -537,12 +525,33 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             "repeat_penalty": 1.0,
             "mirostat_eta": 0.0,
             "mirostat_tau": 0.0,
-            "grammar": grammar_string
+            # "grammar": grammar_string
         }
 
-        completion_response = self.session.post(url=self.completion_url, headers=self.headers, json=request).json()
+        raw_completion_response = self.session.post(url=self.completion_url, headers=self.headers, json=request).json()
+        completion_response = self.__convert_completion_response(prompt, raw_completion_response)
 
-        return self.__convert_completion_response(prompt, completion_response)
+        if type(decoder) == GreedyConstrainedDecoder:
+            # Using a grammar directly in llama.cpp does seem to work differently as compared to llama-cpp-python.
+            decoder: GreedyConstrainedDecoder
+
+            allowed_tokens = []
+            for allowed_token in decoder.allowed_strings:
+                allowed_tokens.append(f"{allowed_token}")
+                allowed_tokens.append(f" {allowed_token}")
+
+            tokens: Dict[str, float] = completion_response.choices[0].logprobs.top_logprobs[0]
+            sorted_tokens = {k: v for k, v in sorted(tokens.items(), key=lambda item: item[1], reverse=True)}
+            filtered_tokens = {k: v for k, v in filter(lambda item: item[0] in allowed_tokens, tokens.items())}
+            if filtered_tokens == {}:
+                selection = "NONE"
+            else:
+                selection = next(iter(filtered_tokens.keys()))
+
+            completion_response.choices[0].text = selection
+            completion_response.choices[0].logprobs.top_logprobs[0] = sorted_tokens
+
+        return completion_response
 
     @staticmethod
     def __convert_completion_response(prompt: str, completion_response: Dict) -> CompletionResult:
