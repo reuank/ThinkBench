@@ -113,6 +113,9 @@ class CompletionResult:
     def get_text(self):
         return self.choices[0].text
 
+    def get_usage(self):
+        return self.usage
+
     def get_most_probable_token(self):
         return self.choices[0].logprobs.tokens[0]
 
@@ -150,8 +153,9 @@ class CompletionHistory:
 
         for k, v in self.completions.items():
             completions_dict[k] = {
-                "completion_text": v.completion_result.get_text(),
-                "completion_config": v.completion_config,
+                "text": v.completion_result.get_text(),
+                "stats": v.completion_result.get_usage(),
+                "config": v.completion_config,
                 "decoder": v.decoder
             }
             if isinstance(v.decoder, GreedyConstrainedDecoder):

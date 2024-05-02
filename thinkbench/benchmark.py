@@ -24,6 +24,10 @@ class Metrics(TypedDict):
     total_results: int
     num_correct: int
     accuracy: float
+    total_prompt_tokens: int
+    total_prompt_eval_ms: float
+    total_generated_tokens: int
+    total_generation_ms: float
 
 
 class Benchmark(ABC):
@@ -81,10 +85,25 @@ class LabelGenerationBenchmarkType(Benchmark, ABC):
         num_correct = len(list(filter(lambda item: item["is_correct"], all_results)))
         accuracy = round(num_correct * 100 / total_results, 2)
 
+        total_prompt_tokens = 0
+        total_prompt_eval_ms = 0
+        total_generated_tokens = 0
+        total_generation_ms = 0
+        for result in all_results:
+            for completion in result["completions"][0].completions.values():
+                total_prompt_tokens += completion.completion_result.usage.prompt_tokens
+                total_prompt_eval_ms += completion.completion_result.usage.prompt_ms
+                total_generated_tokens += completion.completion_result.usage.completion_tokens
+                total_generation_ms += completion.completion_result.usage.completion_ms
+
         return Metrics(
             total_results=total_results,
             num_correct=num_correct,
-            accuracy=accuracy
+            accuracy=accuracy,
+            total_prompt_tokens=total_prompt_tokens,
+            total_prompt_eval_ms=total_prompt_eval_ms,
+            total_generated_tokens=total_generated_tokens,
+            total_generation_ms=total_generation_ms
         )
 
 
