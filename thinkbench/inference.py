@@ -344,7 +344,7 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
         ) for choice_id, choice in enumerate(completion_response['choices'])]
 
         usage = Usage(
-            prompt_tokens=completion_response["usage"]["prompt_tokens"],
+            prompt_tokens=completion_response["usage"]["prompt_tokens"]-completion_response["usage"]["completion_tokens"],
             prompt_tokens_per_second=0,
             prompt_ms=0,
             completion_tokens=completion_response["usage"]["completion_tokens"],
