@@ -443,7 +443,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             "-cb" if self.continuous_batching else "",
             "--log-disable"
         ], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-        time.sleep(3)
+        time.sleep(2)
         print(f"Currently loaded model on the available server: {self.get_backend_properties()['loaded_model']}")
         Timer.get_instance(f"Load {model_config.hf_filename}").end(print_out=True)
 
@@ -547,6 +547,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     @staticmethod
     def __convert_completion_response(prompt: str, completion_response: Dict) -> CompletionResult:
         def get_logprob(prob: float) -> float:
+            return prob
             return math.log(prob) if prob != 0 else -100.0
 
         finish_reason = ""

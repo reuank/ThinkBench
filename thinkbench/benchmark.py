@@ -20,6 +20,12 @@ class SingleBenchmarkResult(TypedDict):
     completions: List[CompletionHistory]
 
 
+class Metrics(TypedDict):
+    total_results: int
+    num_correct: int
+    accuracy: float
+
+
 class Benchmark(ABC):
     @property
     def name(self):
@@ -75,11 +81,11 @@ class LabelGenerationBenchmarkType(Benchmark, ABC):
         num_correct = len(list(filter(lambda item: item["is_correct"], all_results)))
         accuracy = round(num_correct * 100 / total_results, 2)
 
-        return {
-            "total_results": total_results,
-            "num_correct": num_correct,
-            "accuracy": accuracy
-        }
+        return Metrics(
+            total_results=total_results,
+            num_correct=num_correct,
+            accuracy=accuracy
+        )
 
 
 class ScoringBenchmarkType(Benchmark, ABC):

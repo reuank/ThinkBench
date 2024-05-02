@@ -9,6 +9,7 @@ from storage import StorageBackend, JsonFileStorage
 
 from testcase import TestCase, TestCaseResult
 from utils.timer import Timer
+from tabulate import tabulate
 
 
 class ThinkBench:
@@ -36,6 +37,8 @@ class ThinkBench:
 
         cached_datasets: Dict[str, Dataset] = {}
 
+        metrics_list: List[List] = []
+
         for model_name in processed_arguments["model_names"]:  # implement ensure_list
             print("")
             print("=" * (41 + len(model_name)))
@@ -61,16 +64,18 @@ class ThinkBench:
                     test_case: TestCase = TestCase(dataset, limit, label_numbering, benchmark, use_chat_template)  # num-fewshot # use chat templates
                     test_case_result: TestCaseResult = inference_backend.run_test_case(test_case, comment)
 
+                    metrics_list.append([test_case_result["model"], test_case_result["metrics"]["accuracy"]])
                     storage_backend.store(test_case_result)
 
         print("=" * 45)
         print("=" * 45)
+
         Timer.get_instance("Run all").end(print_out=True)
+
+        print(tabulate(metrics_list, headers=['Model', 'Accuracy'], tablefmt='outline'))
 
         if isinstance(inference_backend, LlamaCppServerInferenceBackend):
             inference_backend.terminate_all_running_servers()
-
-        # Timer.print_instances()
 
     @staticmethod
     def process_arguments(models, datasets, inference_backend, benchmarks, limit, labels, use_chat_template, verbose, comment):

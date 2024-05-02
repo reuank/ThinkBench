@@ -1,6 +1,6 @@
 from typing import List, TypedDict, Optional, Dict
 
-from benchmark import Benchmark, SingleBenchmarkResult
+from benchmark import Benchmark, SingleBenchmarkResult, Metrics
 from dataset import Dataset, Numbering, SingleDataInstance
 
 
@@ -12,17 +12,13 @@ class TestCaseResult(TypedDict):
     hostname: str
     inference_backend: str
     inference_backend_properties: Optional[Dict]
-    metrics: Dict[str, float | int]
+    metrics: Metrics
     start_time: float
     end_time: float
     execution_seconds: float
     comment: str
     use_chat_template: bool
     results: List[SingleBenchmarkResult]
-
-
-class SingleTestContext:
-    fewshot_examples: List[SingleDataInstance]
 
 
 class TestCase:
