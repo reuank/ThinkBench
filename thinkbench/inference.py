@@ -519,15 +519,18 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             "id_slot": additional_params["id_slot"],  # ensure that a thread only uses its own server slot
             "n_predict": completion_config.max_tokens,
             "n_probs": completion_config.max_logprobs,
+            "min_keep": completion_config.max_logprobs,
             "temperature": completion_config.temperature,
             "samplers": ["temperature"],
             "seed": 1234,
             "repeat_last_n": 0,
             "min_p": 0.0,
             "top_p": 1.0,
+            "top_k": 100,
             "repeat_penalty": 1.0,
             "mirostat_eta": 0.0,
             "mirostat_tau": 0.0,
+            "cache_prompt": True
             # "grammar": grammar_string
         }
 
