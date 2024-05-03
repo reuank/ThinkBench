@@ -11,6 +11,8 @@ from requests import Session
 
 import subprocess
 
+from tqdm import tqdm
+
 
 def kill_all_old_servers():
     print("Terminating any old server processes...")
@@ -31,7 +33,7 @@ def create_completion(prompt: str, slot_id):
     request = {
         "prompt": prompt,
         "id_slot": slot_id,  # ensure that a thread only uses its own server slot
-        "n_predict": 512,
+        "n_predict": 128,
         "n_probs": 1,
         "temperature": 0,
         "samplers": ["temperature"],
@@ -51,10 +53,11 @@ def create_completion(prompt: str, slot_id):
     return raw_completion_response["content"]
 
 
-def run_subset(thread_id: int, prompts: List[str], output_queue: Queue):
+def run_subset(thread_id: int, prompts: List[str], output_queue: Queue, shared_progressbar: tqdm):
     for prompt in prompts:
         response = create_completion(prompt, thread_id)
         output_queue.put(response)
+        shared_progressbar.update(1)
 
 
 def run_all(prompts: List[str]):
@@ -78,13 +81,17 @@ def run_all(prompts: List[str]):
 
     chunks = distribute_chunks(data=prompts, num_threads=n_parallel)
 
+    shared_progressbar = tqdm(total=len(prompts), desc=f"Prompting model on {n_parallel} server slots.")
+
     for i in range(n_parallel):
-        thread = threading.Thread(target=run_subset, args=(i, chunks[i], output_queue))
+        thread = threading.Thread(target=run_subset, args=(i, chunks[i], output_queue, shared_progressbar))
         threads.append(thread)
         thread.start()
 
     for thread in threads:
         thread.join()
+
+    shared_progressbar.close()
 
     all_results: List[str] = []
     while not output_queue.empty():
@@ -100,8 +107,8 @@ if __name__ == '__main__':
 
     n_parallel = 2
 
-    server_binary_path = Path("../../../llama.cpp/server")
-    model_path = Path("../../../models/llama-2-7b-chat.Q4_K_M.gguf")
+    server_binary_path = Path("../../../llama.cpp/build/bin/server")
+    model_path = Path("../../../../models/llama-2-7b-chat.Q4_K_M.gguf")
 
     completion_url = "http://localhost:8080/completion"
     headers = {'content-type': 'application/json'}
@@ -124,5 +131,6 @@ if __name__ == '__main__':
     time.sleep(2)
 
     results = run_all(prompts=prompts*16)
+    unique_results = list(set(results))
 
-    print(json.dumps(results, indent=2))
+    print(json.dumps(unique_results, indent=2))
