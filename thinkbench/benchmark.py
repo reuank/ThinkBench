@@ -101,9 +101,9 @@ class LabelGenerationBenchmarkType(Benchmark, ABC):
             num_correct=num_correct,
             accuracy=accuracy,
             total_prompt_tokens=total_prompt_tokens,
-            total_prompt_eval_ms=total_prompt_eval_ms,
+            total_prompt_eval_ms=round(total_prompt_eval_ms, 2),
             total_generated_tokens=total_generated_tokens,
-            total_generation_ms=total_generation_ms
+            total_generation_ms=round(total_generation_ms, 2)
         )
 
 
