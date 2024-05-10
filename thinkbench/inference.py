@@ -521,6 +521,9 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         return all_results
 
     def create_completion(self, prompt: str, completion_config: CompletionConfig, decoder: Decoder, additional_params: Dict[str, Any]) -> CompletionResult:
+        if type(decoder) == GreedyConstrainedDecoder:
+            completion_config.temperature = -1.0  # Return probs even when using greedy decoding
+
         request = {
             "prompt": prompt,
             "id_slot": additional_params["id_slot"],  # ensure that a thread only uses its own server slot
