@@ -76,12 +76,12 @@ class Usage:
     def __init__(self, prompt_tokens: int, prompt_tokens_per_second: float, prompt_ms: float, completion_tokens: int,
                  completion_tokens_per_second: float, completion_ms: float, total_tokens: int) -> None:
         self.prompt_tokens = prompt_tokens
-        self.prompt_tokens_per_second = prompt_tokens_per_second
-        self.prompt_ms = prompt_ms
+        self.prompt_tokens_per_second = round(prompt_tokens_per_second, 3)
+        self.prompt_ms = round(prompt_ms, 3)
 
         self.completion_tokens = completion_tokens
-        self.completion_tokens_per_second = completion_tokens_per_second
-        self.completion_ms = completion_ms
+        self.completion_tokens_per_second = round(completion_tokens_per_second, 3)
+        self.completion_ms = round(completion_ms, 3)
 
         self.total_tokens = total_tokens
 
