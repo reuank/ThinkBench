@@ -133,12 +133,12 @@ class NonCoTExplicitInstructionBenchmark(NonCoTStandardBenchmark):
     def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
         prompt_chains = [
             PromptChain().add_default_question_template()
-                .add_default_answer_options_template()
-                .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
-                              "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer? ")
-                .add_template("Just answer with the correct label, e.g. with {{ single_data_instance.answer_labels[0]}}"
-                              " if answer {{ single_data_instance.answer_labels[0] }} is correct.")
-                .get_completion(decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels), name="label")
+                         .add_default_answer_options_template()
+                         .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
+                                       "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer? ")
+                         .add_template("Just answer with the correct label, e.g. with {{ single_data_instance.answer_labels[0]}}"
+                                       " if answer {{ single_data_instance.answer_labels[0] }} is correct.")
+                         .get_completion(max_logprobs=50, decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels), name="label")
         ]
 
         return prompt_chains
@@ -147,15 +147,15 @@ class NonCoTExplicitInstructionBenchmark(NonCoTStandardBenchmark):
 class CoTStandardBenchmark(LabelGenerationBenchmarkType):
     def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
         prompt_chains = [
-            PromptChain()
-                .add_default_question_template()
-                .add_default_answer_options_template()
-                .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
-                              "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer?\n\n")
-                .add_text("Let's think step by step.")
-                .get_completion(max_tokens=2048, max_logprobs=1, decoder=GreedyDecoder(), prefix="Reasoning: ", name="reasoning")
-                .add_text("Given this reasoning, the correct answer is: ")
-                .get_completion(decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels), name="label")
+            PromptChain().add_default_question_template()
+                         .add_default_answer_options_template()
+                         .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
+                                       "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer?\n\n")
+                         .add_text("Let's think step by step.")
+                         .get_completion(max_tokens=2048, max_logprobs=1, decoder=GreedyDecoder(), prefix="Reasoning: ", name="reasoning")
+                         .add_template("Given this reasoning, the correct answer among {{ single_data_instance.answer_labels[0] }} through "
+                                       "{{ single_data_instance.answer_labels[-1] }} is:\n\n")
+                         .get_completion(max_logprobs=50, decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels), name="label")
         ]
 
         return prompt_chains
