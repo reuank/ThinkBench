@@ -1,4 +1,4 @@
-import json
+import git
 import math
 import os
 import signal
@@ -394,6 +394,13 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
 
     headers = {'content-type': 'application/json'}
 
+    @property
+    def name(self):
+        repo = git.Repo(path=self.server_binary_path, search_parent_directories=True)
+        current_commit_hash = repo.head.object.hexsha[:8]
+
+        return f"{self.__class__.__name__}-{current_commit_hash}"
+
     def __init__(self):
         # TODO: implement ensure_exists() function or python config file
         try:
@@ -549,6 +556,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             tokens: Dict[str, float] = completion_response.choices[0].logprobs.top_logprobs[0]
             sorted_tokens = {k: v for k, v in sorted(tokens.items(), key=lambda item: item[1], reverse=True)}
             filtered_tokens = {k: v for k, v in filter(lambda item: item[0] in allowed_tokens, tokens.items())}
+
             if filtered_tokens == {}:
                 selection = "NONE"
             else:
