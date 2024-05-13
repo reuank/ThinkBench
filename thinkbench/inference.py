@@ -22,7 +22,7 @@ from benchmark import SingleBenchmarkResult
 from completion import CompletionResult, Choice, Usage, Logprobs, CompletionHistory, CompletionConfig
 from decoder import GreedyConstrainedDecoder, Decoder, GreedyDecoder, BeamSearch
 from dataset import SingleDataInstance
-from model import ModelConfig, HFModelConfig
+from model import ModelConfig, HFModelConfig, QuantizationMethod
 from prompt import PromptChain, PromptCompletionStep, PromptTemplateStep, PromptTextStep
 from testcase import TestCase, TestCaseResult
 from utils.timer import Timer
@@ -66,6 +66,11 @@ class InferenceBackend(ABC):
     @property
     def name(self):
         return self.__class__.__name__
+
+    @property
+    @abstractmethod
+    def supported_quantization_methods(self) -> List[QuantizationMethod]:
+        raise NotImplementedError
 
     @staticmethod
     def get_by_name(backend_name):
@@ -236,6 +241,10 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
             print("Please specify a model path. Did you forget to source .env?")
             exit()
 
+    @property
+    def supported_quantization_methods(self) -> List[QuantizationMethod]:
+        return [QuantizationMethod.GGUF]
+
     def load_model_from_config(self, model_config: ModelConfig):
         if self.loaded_model:
             del self.loaded_model
@@ -244,8 +253,16 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
             raise ValueError("Only HF Models are supported by this inference backend")
 
         model_config: HFModelConfig
+        intersection = list(set(model_config.get_supported_quantization_methods()) & set(self.supported_quantization_methods))
+        if not intersection:
+            raise ValueError(f"This backend supports quantization methods {self.supported_quantization_methods},"
+                             f", but model {model_config.model_name} does only specify repos for methods "
+                             f"{model_config.get_supported_quantization_methods()}")
 
-        InferenceBackend.ensure_hf_model_is_downloaded(local_path=self.model_folder_path, hf_repo=model_config.hf_repo, model_filename=model_config.hf_filename)
+        # Use first intersecting quantization method by default
+        hf_repo, hf_filename = model_config.quantized_model_repos[intersection[0]]
+
+        InferenceBackend.ensure_hf_model_is_downloaded(local_path=self.model_folder_path, hf_repo=hf_filename, model_filename=hf_filename)
 
         # Load correct Tokenizer
         if model_config.use_hf_tokenizer:
@@ -254,9 +271,9 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
         else:
             tokenizer = None  # Defaults to LlamaTokenizer
 
-        Timer.get_instance(f"Load {model_config.hf_filename}").start_over()
+        Timer.get_instance(f"Load {hf_filename}").start_over()
         self.loaded_model: Llama = Llama(
-            model_path=str(self.model_folder_path/model_config.hf_filename),
+            model_path=str(self.model_folder_path/hf_filename),
             n_gpu_layers=self.n_gpu_layers,
             n_ctx=self.n_ctx,
             n_batch=self.n_batch,
@@ -264,7 +281,7 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
             tokenizer=tokenizer,
             verbose=self.verbose
         )
-        Timer.get_instance(f"Load {model_config.hf_filename}").end()
+        Timer.get_instance(f"Load {hf_filename}").end()
 
         self.current_model_config = model_config
 
@@ -401,6 +418,10 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
 
         return f"{self.__class__.__name__}-{current_commit_hash}"
 
+    @property
+    def supported_quantization_methods(self) -> List[QuantizationMethod]:
+        return [QuantizationMethod.GGUF]
+
     def __init__(self):
         # TODO: implement ensure_exists() function or python config file
         try:
@@ -435,14 +456,22 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             raise ValueError("Only HF Models are supported by this inference backend")
 
         model_config: HFModelConfig
+        intersection = list(set(model_config.get_supported_quantization_methods()) & set(self.supported_quantization_methods))
+        if not intersection:
+            raise ValueError(f"This backend supports quantization methods {self.supported_quantization_methods},"
+                             f", but model {model_config.model_name} does only specify repos for methods "
+                             f"{model_config.get_supported_quantization_methods()}")
 
-        InferenceBackend.ensure_hf_model_is_downloaded(local_path=self.model_folder_path, hf_repo=model_config.hf_repo, model_filename=model_config.hf_filename)
+        # Use first intersecting quantization method by default
+        hf_repo, hf_filename = model_config.quantized_model_repos[intersection[0]]
+
+        InferenceBackend.ensure_hf_model_is_downloaded(local_path=self.model_folder_path, hf_repo=hf_repo, model_filename=hf_filename)
 
         # spawn a new server
-        Timer.get_instance(f"Load {model_config.hf_filename}").start_over(print_out=True)
+        Timer.get_instance(f"Load {hf_filename}").start_over(print_out=True)
         server_process_arguments = [
             str(self.server_binary_path),
-            "-m", str(self.model_folder_path/model_config.hf_filename),
+            "-m", str(self.model_folder_path/hf_filename),
             "-b", str(self.n_batch),
             "-c", str(self.n_ctx),
             "-ngl", str(self.n_gpu_layers),
@@ -455,7 +484,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         self.process = subprocess.Popen(server_process_arguments, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         time.sleep(2)
         print(f"Currently loaded model on the available server: {self.get_backend_properties()['loaded_model']}")
-        Timer.get_instance(f"Load {model_config.hf_filename}").end(print_out=True)
+        Timer.get_instance(f"Load {hf_filename}").end(print_out=True)
 
         self.current_model_config = model_config
 
