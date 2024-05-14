@@ -153,8 +153,24 @@ class CoTStandardBenchmark(LabelGenerationBenchmarkType):
                                        "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer?\n\n")
                          .add_text("Let's think step by step.")
                          .get_completion(max_tokens=2048, max_logprobs=1, decoder=GreedyDecoder(), prefix="Reasoning: ", name="reasoning")
-                         .add_template("Given this reasoning, the correct answer among {{ single_data_instance.answer_labels[0] }} through "
-                                       "{{ single_data_instance.answer_labels[-1] }} is:\n\n")
+                         .add_template("Given this reasoning, the correct answer is: ")
+                         .get_completion(max_logprobs=50, decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels), name="label")
+        ]
+
+        return prompt_chains
+
+
+class CoTVariant1Benchmark(LabelGenerationBenchmarkType):
+    def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
+        prompt_chains = [
+            PromptChain().add_default_question_template()
+                         .add_default_answer_options_template()
+                         .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
+                                       "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer?\n\n")
+                         .add_text("Let's think step by step.")
+                         .get_completion(max_tokens=2048, max_logprobs=1, decoder=GreedyDecoder(), prefix="Reasoning: ", name="reasoning")
+                         .add_template("Given this reasoning, the correct answer among labels {{ single_data_instance.answer_labels[0] }} through "
+                                       "{{ single_data_instance.answer_labels[-1] }} is: \n\n")
                          .get_completion(max_logprobs=50, decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels), name="label")
         ]
 
@@ -180,5 +196,6 @@ benchmark_mapping: Dict[str, callable] = {
     "non-cot-standard": NonCoTStandardBenchmark,
     "non-cot-instruct": NonCoTExplicitInstructionBenchmark,
     "non-cot-score-individually": NonCoTScoreIndividuallyBenchmark,
-    "cot-standard": CoTStandardBenchmark
+    "cot-standard": CoTStandardBenchmark,
+    "cot-variant-1": CoTVariant1Benchmark
 }
