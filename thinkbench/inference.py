@@ -427,11 +427,15 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     headers = {'content-type': 'application/json'}
 
     @property
-    def name(self):
+    def current_commit_hash(self):
         repo = git.Repo(path=self.server_binary_path, search_parent_directories=True)
         current_commit_hash = repo.head.object.hexsha[:8]
 
-        return f"{self.__class__.__name__}-{current_commit_hash}"
+        return current_commit_hash
+
+    @property
+    def name(self):
+        return f"{self.__class__.__name__}-{self.current_commit_hash}"
 
     @property
     def supported_quantization_methods(self) -> List[QuantizationMethod]:
@@ -730,6 +734,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             "batch_size": self.n_batch,
             "n_gpu_layers": self.n_gpu_layers,
             "continuous_batching": self.continuous_batching,
+            "current_commit_hash": self.current_commit_hash
         }
 
     def terminate_all_running_servers(self):
