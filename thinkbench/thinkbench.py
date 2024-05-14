@@ -85,6 +85,8 @@ class ThinkBench:
     @staticmethod
     def process_arguments(models, datasets, inference_backend, benchmarks, limit, labels, use_chat_template, verbose, comment):
         def _ensure_list(parameter: str | List[str]) -> List[str]:
+            if "," in parameter:
+                parameter = parameter.split(",")
             if type(parameter) == str:
                 parameter = [parameter]
 
