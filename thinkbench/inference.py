@@ -79,6 +79,8 @@ class InferenceBackend(ABC):
             inference_backend = LlamaCppPythonInferenceBackend()
         elif backend_name == "llama.cpp":
             inference_backend = LlamaCppServerInferenceBackend()
+        elif backend_name == "transformers":
+            inference_backend = TransformersInferenceBackend()
         else:
             raise ValueError(f"Backend name '{backend_name}' not found.")
 
@@ -717,3 +719,68 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass  # Process has been killed or can't be accessed
 
+
+class TransformersInferenceBackend(InferenceBackend):
+    loaded_model: None
+
+    def __init__(self):
+        # TODO: implement ensure_exists() function or python config file
+        try:
+            model_folder_path_str = os.environ.get("TB_MODEL_PATH")
+            if not model_folder_path_str:
+                raise KeyError
+            else:
+                self.model_folder_path: Path = Path(model_folder_path_str)
+                self.model_folder_path.mkdir(parents=True, exist_ok=True)
+        except KeyError:
+            print("Please specify a model path. Did you forget to source .env?")
+            exit()
+
+    @property
+    def supported_quantization_methods(self) -> List[QuantizationMethod]:
+        return [QuantizationMethod.AWQ, QuantizationMethod.GPTQ]
+
+    def load_model_from_config(self, model_config: ModelConfig):
+        raise NotImplementedError
+
+        from transformers import AutoModelForCausalLM
+        if self.loaded_model:
+            del self.loaded_model
+
+        if not isinstance(model_config, HFModelConfig):
+            raise ValueError("Only HF Models are supported by this inference backend")
+
+        model_config: HFModelConfig
+        intersection = list(set(model_config.get_supported_quantization_methods()) & set(self.supported_quantization_methods))
+        if not intersection:
+            raise ValueError(f"This backend supports quantization methods {self.supported_quantization_methods},"
+                             f", but model {model_config.model_name} does only specify repos for methods "
+                             f"{model_config.get_supported_quantization_methods()}")
+
+        # Use first intersecting quantization method by default
+        hf_repo, hf_filename = model_config.quantized_model_repos[intersection[0]]
+
+        InferenceBackend.ensure_hf_model_is_downloaded(local_path=self.model_folder_path, hf_repo=hf_filename, model_filename=hf_filename)
+
+        # Load correct Tokenizer
+        if model_config.use_hf_tokenizer:
+            tokenizer = LlamaHFTokenizer.from_pretrained(model_config.hf_tokenizer)
+            print(f"External Tokenizer {model_config.hf_tokenizer} loaded.")
+        else:
+            tokenizer = None  # Defaults to LlamaTokenizer
+
+        Timer.get_instance(f"Load {hf_filename}").start_over()
+        self.loaded_model = AutoModelForCausalLM.from_pretrained(hf_repo)
+        Timer.get_instance(f"Load {hf_filename}").end()
+
+        self.current_model_config = model_config
+
+    def create_completion(self, prompt: str, completion_config: CompletionConfig, decoder: Decoder,
+                          additional_params: Dict[str, Any]) -> CompletionResult:
+        pass
+
+    def _run_test_case(self, test_case: TestCase, test_data_instances: List[SingleDataInstance]) -> List[SingleBenchmarkResult]:
+        pass
+
+    def get_backend_properties(self):
+        pass
