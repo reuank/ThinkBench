@@ -5,6 +5,7 @@ from dataset import Dataset, Numbering, SingleDataInstance
 
 
 class TestCaseResult(TypedDict):
+    uuid: str
     model: str
     dataset_name: str
     benchmark_name: str

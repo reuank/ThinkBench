@@ -1,3 +1,5 @@
+import uuid
+
 import git
 import math
 import os
@@ -136,6 +138,7 @@ class InferenceBackend(ABC):
         print(f"Metrics: {metrics}.")
 
         return TestCaseResult(
+            uuid=str(uuid.uuid4()),
             model=self.current_model_config.model_name,
             dataset_name=test_case.dataset.name,
             benchmark_name=test_case.benchmark.name,
