@@ -784,8 +784,9 @@ class LlamaCppMultiGPUServerInferenceBackend(LlamaCppServerInferenceBackend):
         Timer.get_instance(f"Load {hf_filename}").start_over(print_out=True)
         # spawn n_parallel new servers
         for i in range(self.n_parallel):
+            print(f"Starting server on port {self.port + i} for GPU id {i}")
             server_process_arguments = [
-                f"export CUDA_VISIBLE_DEVICES={i}",
+                f"export CUDA_VISIBLE_DEVICES={i};",
                 str(self.server_binary_path),
                 "--port", str(self.port + i),  # 8080, 8081, 8082...
                 "-m", str(self.model_folder_path/hf_filename),
@@ -803,7 +804,7 @@ class LlamaCppMultiGPUServerInferenceBackend(LlamaCppServerInferenceBackend):
             else:
                 stdout = subprocess.DEVNULL
 
-            self.process = subprocess.Popen(server_process_arguments, stdout=stdout, stderr=subprocess.STDOUT)
+            self.process = subprocess.Popen(server_process_arguments, shell=True, stdout=stdout, stderr=subprocess.STDOUT)
             time.sleep(2)
             print(f"Currently loaded model on the available server: {self.get_backend_properties()['loaded_model']}")
 
