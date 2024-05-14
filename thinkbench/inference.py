@@ -3,6 +3,7 @@ import uuid
 import git
 import math
 import os
+import sys
 import signal
 import threading
 import time
@@ -28,6 +29,9 @@ from model import ModelConfig, HFModelConfig, QuantizationMethod
 from prompt import PromptChain, PromptCompletionStep, PromptTemplateStep, PromptTextStep
 from testcase import TestCase, TestCaseResult
 from utils.timer import Timer
+
+
+server_debug = False
 
 
 class MessageHistory:
@@ -492,7 +496,12 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         if self.continuous_batching:
             server_process_arguments.append("-cb")
 
-        self.process = subprocess.Popen(server_process_arguments, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        if server_debug:
+            stdout = sys.stdout
+        else:
+            stdout = subprocess.DEVNULL
+
+        self.process = subprocess.Popen(server_process_arguments, stdout=stdout, stderr=subprocess.STDOUT)
         time.sleep(2)
         print(f"Currently loaded model on the available server: {self.get_backend_properties()['loaded_model']}")
         Timer.get_instance(f"Load {hf_filename}").end(print_out=True)
@@ -779,7 +788,12 @@ class LlamaCppMultiGPUServerInferenceBackend(LlamaCppServerInferenceBackend):
             if self.continuous_batching:
                 server_process_arguments.append("-cb")
 
-            self.process = subprocess.Popen(server_process_arguments, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+            if server_debug:
+                stdout = sys.stdout
+            else:
+                stdout = subprocess.DEVNULL
+
+            self.process = subprocess.Popen(server_process_arguments, stdout=stdout, stderr=subprocess.STDOUT)
             time.sleep(2)
             print(f"Currently loaded model on the available server: {self.get_backend_properties()['loaded_model']}")
 
