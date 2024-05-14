@@ -17,6 +17,7 @@ class TestCaseResult(TypedDict):
     start_time: float
     end_time: float
     execution_seconds: float
+    current_commit_hash: str
     comment: str
     use_chat_template: bool
     results: List[SingleBenchmarkResult]

@@ -1,3 +1,4 @@
+import pathlib
 import uuid
 
 import git
@@ -143,6 +144,9 @@ class InferenceBackend(ABC):
         Timer.get_instance("test_case").end()
         print(f"Metrics: {metrics}.")
 
+        repo = git.Repo(path=pathlib.Path(__file__).parent.resolve(), search_parent_directories=True)
+        current_commit_hash = repo.head.object.hexsha[:8]
+
         return TestCaseResult(
             uuid=str(uuid.uuid4()),
             model=self.current_model_config.model_name,
@@ -156,6 +160,7 @@ class InferenceBackend(ABC):
             start_time=Timer.get_instance("test_case").start_time,
             end_time=Timer.get_instance("test_case").end_time,
             execution_seconds=Timer.get_instance("test_case").elapsed_time,
+            current_commit_hash=current_commit_hash,
             comment=comment,
             use_chat_template=test_case.use_chat_template,
             results=single_results
