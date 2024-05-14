@@ -4,9 +4,9 @@ import git
 import math
 import os
 import signal
-import string
 import threading
 import time
+from string import Template
 from abc import abstractmethod, ABC
 from pathlib import Path
 from queue import Queue
@@ -81,6 +81,8 @@ class InferenceBackend(ABC):
             inference_backend = LlamaCppPythonInferenceBackend()
         elif backend_name == "llama.cpp":
             inference_backend = LlamaCppServerInferenceBackend()
+        elif backend_name == "llama.cpp-multi-gpu":
+            inference_backend = LlamaCppMultiGPUServerInferenceBackend()
         elif backend_name == "transformers":
             inference_backend = TransformersInferenceBackend()
         else:
@@ -188,7 +190,7 @@ class InferenceBackend(ABC):
                 previous_completion_texts = completion_history.get_texts()
 
                 try:
-                    filled_prompt = string.Template(unfilled_prompt).substitute(previous_completion_texts)
+                    filled_prompt = Template(unfilled_prompt).substitute(previous_completion_texts)
                 except ValueError:
                     raise ValueError("Provided prompt variables not correct.")
 
@@ -411,6 +413,8 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     continuous_batching: bool = False
 
     process: Popen = None
+    completion_url_template: Template = Template("http://localhost:${port}/completion")
+    properties_url_template: Template = Template("http://localhost:${port}/props")
     headers = {'content-type': 'application/json'}
 
     @property
@@ -441,11 +445,8 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
                 self.server_binary_path: Path = Path(server_binary_path)
 
                 if not port:
-                    port = "8080"
-                self.port = port
-
-                self.completion_url: str = f"http://localhost:{self.port}/completion"
-                self.properties_url: str = f"http://localhost:{self.port}/props"
+                    port = 8080
+                self.port: int = int(port)
         except KeyError:
             print("Please specify a model path, the number of server slots and the server binary path. Did you forget to source .env?")
             exit()
@@ -480,7 +481,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         Timer.get_instance(f"Load {hf_filename}").start_over(print_out=True)
         server_process_arguments = [
             str(self.server_binary_path),
-            "--port", self.port,
+            "--port", str(self.port),
             "-m", str(self.model_folder_path/hf_filename),
             "-b", str(self.n_batch),
             "-c", str(self.n_ctx),
@@ -583,7 +584,10 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             # "grammar": grammar_string
         }
 
-        raw_completion_response = self.session.post(url=self.completion_url, headers=self.headers, json=request).json()
+        raw_completion_response = self.session.post(
+            url=self.completion_url_template.substitute(port=self.port),
+            headers=self.headers,
+            json=request).json()
         completion_response = self.__convert_completion_response(prompt, raw_completion_response)
 
         if type(decoder) == GreedyConstrainedDecoder:
@@ -703,7 +707,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         # return f"root   ::= [ ]? option \noption ::= ({'|'.join(labels_with_quotes)})"
 
     def get_backend_properties(self) -> Dict[str, str]:
-        server_settings = self.session.get(url=self.properties_url, headers=self.headers).json()
+        server_settings = self.session.get(url=self.properties_url_template.substitute(port=self.port), headers=self.headers).json()
 
         return {
             "loaded_model": server_settings["default_generation_settings"]["model"],
@@ -726,6 +730,114 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
                     proc.send_signal(signal.SIGTERM)  # or proc.terminate()
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass  # Process has been killed or can't be accessed
+
+
+class LlamaCppMultiGPUServerInferenceBackend(LlamaCppServerInferenceBackend):
+    def __init__(self):
+        # TODO: implement ensure_exists() function or python config file
+        super().__init__()
+        self.n_ctx = 4096
+
+    def load_model_from_config(self, model_config: ModelConfig):
+        import subprocess
+
+        print("Terminating any old server processes...")
+        if self.process:
+            self.process.terminate()
+        self.terminate_all_running_servers()
+        time.sleep(2)
+
+        if not isinstance(model_config, HFModelConfig):
+            raise ValueError("Only HF Models are supported by this inference backend")
+
+        model_config: HFModelConfig
+        intersection = list(set(model_config.get_supported_quantization_methods()) & set(self.supported_quantization_methods))
+        if not intersection:
+            raise ValueError(f"This backend supports quantization methods {self.supported_quantization_methods},"
+                             f", but model {model_config.model_name} does only specify repos for methods "
+                             f"{model_config.get_supported_quantization_methods()}")
+
+        # Use first intersecting quantization method by default
+        hf_repo, hf_filename = model_config.quantized_model_repos[intersection[0]]
+
+        InferenceBackend.ensure_hf_model_is_downloaded(local_path=self.model_folder_path, hf_repo=hf_repo, model_filename=hf_filename)
+
+        Timer.get_instance(f"Load {hf_filename}").start_over(print_out=True)
+        # spawn n_parallel new servers
+        for i in range(self.n_parallel):
+            server_process_arguments = [
+                f"export CUDA_VISIBLE_DEVICES={i}",
+                str(self.server_binary_path),
+                "--port", str(self.port + i),  # 8080, 8081, 8082...
+                "-m", str(self.model_folder_path/hf_filename),
+                "-b", str(self.n_batch),
+                "-c", str(self.n_ctx),
+                "-ngl", str(self.n_gpu_layers),
+                "-np", str(self.n_parallel),
+                "--log-disable"
+            ]
+            if self.continuous_batching:
+                server_process_arguments.append("-cb")
+
+            self.process = subprocess.Popen(server_process_arguments, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+            time.sleep(2)
+            print(f"Currently loaded model on the available server: {self.get_backend_properties()['loaded_model']}")
+
+        Timer.get_instance(f"Load {hf_filename}").end(print_out=True)
+
+        self.current_model_config = model_config
+
+    def create_completion(self, prompt: str, completion_config: CompletionConfig, decoder: Decoder, additional_params: Dict[str, Any]) -> CompletionResult:
+        if type(decoder) == GreedyConstrainedDecoder:
+            completion_config.temperature = -1.0  # Return probs even when using greedy decoding
+
+        request = {
+            "prompt": prompt,
+            "n_predict": completion_config.max_tokens,
+            "n_probs": completion_config.max_logprobs,
+            "min_keep": completion_config.max_logprobs,
+            "temperature": completion_config.temperature,
+            "samplers": ["temperature"],
+            "seed": 1234,
+            "repeat_last_n": 0,
+            "min_p": 0.0,
+            "top_p": 1.0,
+            "top_k": 100,
+            "repeat_penalty": 1.0,
+            "mirostat_eta": 0.0,
+            "mirostat_tau": 0.0,
+            "cache_prompt": True
+            # "grammar": grammar_string
+        }
+
+        raw_completion_response = self.session.post(
+            url=self.completion_url_template.substitute(port=self.port + additional_params["id_slot"]),
+            headers=self.headers,
+            json=request).json()
+        completion_response = self.__convert_completion_response(prompt, raw_completion_response)
+
+        if type(decoder) == GreedyConstrainedDecoder:
+            # Using a grammar directly in llama.cpp does seem to work differently as compared to llama-cpp-python.
+            decoder: GreedyConstrainedDecoder
+
+            allowed_tokens = []
+            for allowed_token in decoder.allowed_strings:
+                allowed_tokens.append(f"{allowed_token}")
+                allowed_tokens.append(f" {allowed_token}")
+
+            tokens: Dict[str, float] = completion_response.choices[0].logprobs.top_logprobs[0]
+            sorted_tokens = {k: v for k, v in sorted(tokens.items(), key=lambda item: item[1], reverse=True)}
+            filtered_tokens = {k: v for k, v in filter(lambda item: item[0] in allowed_tokens, tokens.items())}
+
+            if filtered_tokens == {}:
+                selection = "NONE"
+            else:
+                selection = next(iter(filtered_tokens.keys()))
+
+            completion_response.choices[0].text = selection
+            completion_response.choices[0].logprobs.top_logprobs[0] = sorted_tokens
+
+        return completion_response
 
 
 class TransformersInferenceBackend(InferenceBackend):
