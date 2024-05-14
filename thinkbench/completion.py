@@ -154,7 +154,7 @@ class CompletionHistory:
         for k, v in self.completions.items():
             completions_dict[k] = {
                 "text": v.completion_result.get_text(),
-                "stats": v.completion_result.get_usage(),
+                # "stats": v.completion_result.get_usage(),
                 "config": v.completion_config,
                 "decoder": v.decoder
             }
