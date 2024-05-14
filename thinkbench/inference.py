@@ -411,9 +411,6 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     continuous_batching: bool = False
 
     process: Popen = None
-    completion_url = "http://localhost:8080/completion"
-    properties_url = "http://localhost:8080/props"
-
     headers = {'content-type': 'application/json'}
 
     @property
@@ -433,6 +430,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             model_folder_path_str = os.environ.get("TB_MODEL_PATH")
             n_parallel = os.environ.get("TB_LLAMA_CPP_SERVER_SLOTS")
             server_binary_path = os.environ.get("LLAMA_CPP_SERVER_BINARY")
+            port = os.environ.get("LLAMA_CPP_SERVER_PORT")
             if not model_folder_path_str or not n_parallel or not server_binary_path:
                 raise KeyError
             else:
@@ -441,9 +439,15 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
                 self.n_parallel = int(n_parallel)
                 self.n_ctx = self.n_parallel * 4096
                 self.server_binary_path: Path = Path(server_binary_path)
+
+                if not port:
+                    port = "8080"
+                self.port = port
+
+                self.completion_url: str = f"http://localhost:{self.port}/completion"
+                self.properties_url: str = f"http://localhost:{self.port}/props"
         except KeyError:
-            print("Please specify a model path. Did you forget to source .env?")
-            print("Please specify the number of server slots. Did you forget to source .env?")
+            print("Please specify a model path, the number of server slots and the server binary path. Did you forget to source .env?")
             exit()
 
         self.session: Session = Session()
@@ -476,6 +480,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         Timer.get_instance(f"Load {hf_filename}").start_over(print_out=True)
         server_process_arguments = [
             str(self.server_binary_path),
+            "--port", self.port,
             "-m", str(self.model_folder_path/hf_filename),
             "-b", str(self.n_batch),
             "-c", str(self.n_ctx),
