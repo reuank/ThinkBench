@@ -68,105 +68,146 @@ class TraceAnalyzer:
             worksheet = workbook.add_worksheet(model_name)
 
             cell_format = workbook.add_format({
+                "align": "left",
                 "valign": "top",
                 "text_wrap": True
             })
 
+            thick_border_left_format = workbook.add_format({
+                "align": "left",
+                'valign': 'top',
+                'text_wrap': True,
+                'left': 5
+            })
+
+            thick_border_right_format = workbook.add_format({
+                "align": "left",
+                'valign': 'top',
+                'text_wrap': True,
+                'right': 5
+            })
+
             for col_num, col_data in enumerate(analysis_result["result_rows"][0].keys()):
-                worksheet.set_column(col_num + 1, col_num + 1, 20)
+                worksheet.set_column(col_num + 1, col_num + 1, 10)
 
             worksheet.set_column('C:C', 60)  # reasoning
-            worksheet.set_column('E:E', 60)  # answer sentence
+            worksheet.set_column('D:D', 40)  # answer sentence
+            worksheet.set_column('L:L', 40)  # comment
 
             # Table content
             for row_num, row_data in enumerate(analysis_result["result_rows"]):
                 for col_num, cell_data in enumerate(list(row_data.values())):
-                    worksheet.write(row_num + 2, col_num + 1, cell_data, cell_format)
+                    if col_num == 3:
+                        worksheet.write(row_num + 2, col_num + 1, cell_data, thick_border_left_format)
+                    elif col_num == 5:
+                        worksheet.write_formula(row_num + 2, col_num + 1, f'=IF(OR($E{row_num + 3}=$J{row_num + 3}, $F{row_num + 3}=$J{row_num + 3}), 1, 0)', thick_border_right_format)
+                    elif col_num == 7 or col_num == 8:
+                        worksheet.write(row_num + 2, col_num + 1, cell_data, thick_border_right_format)
+                    elif col_num == 9:
+                        worksheet.write_formula(row_num + 2, col_num + 1, f'=IF(OR($E{row_num + 3}=$H{row_num + 3}, $F{row_num + 3}=$H{row_num + 3}), 1, 0)', cell_format)
+                    else:
+                        worksheet.write(row_num + 2, col_num + 1, cell_data, cell_format)
 
             # Define the table range (start_row, start_col, end_row, end_col)
             start_row = 1
             start_col = 1
-            end_row = len(analysis_result["result_rows"]) + 1
+            end_row = len(analysis_result["result_rows"]) + 2  # 1 space, 1 header
             end_col = len(analysis_result["result_rows"][0].values())
 
             # Add the table with headers
-            worksheet.add_table(start_row, start_col, end_row, end_col, {'columns': [{'header': col} for col in list(analysis_result["result_rows"][0].keys())]})
+            worksheet.add_table(start_row, start_col, end_row, end_col, {
+                "total_row": 1,
+                'columns': [
+                    {'header': col, 'total_function': 'sum'} for col in list(analysis_result["result_rows"][0].keys())
+                ]
+            })
 
-            for row_num in range(start_row + 1, end_row + 1):  # Skip header row
-                # Color automatic extraction red if it is wrong
+            for row_num in range(start_row + 1, end_row):  # Skip header and total row
+                # Color answer sentences dark red if they are empty
                 worksheet.conditional_format(
-                    row_num, 4,  # Column E
-                    row_num, 4,
+                    row_num, 3,  # Column D
+                    row_num, 3,
                     {
                         'type': 'formula',
-                        'criteria': f'=AND($E{row_num + 1}<>$I{row_num + 1},$E{row_num + 1}<>"")',
-                        'format': workbook.add_format({'bg_color': pastel_red})
-                    }
-                )
-
-                # Color automatic extraction dark red if it is empty
-                worksheet.conditional_format(
-                    row_num, 4,  # Column E
-                    row_num, 4,
-                    {
-                        'type': 'formula',
-                        'criteria': f'=$E{row_num + 1}=""',
+                        'criteria': f'=$D{row_num + 1}=""',
                         'format': workbook.add_format({'bg_color': 'red'})
                     }
                 )
 
-                # Color automatic extraction green if it is right
-                worksheet.conditional_format(
-                    row_num, 4,  # Column E
-                    row_num, 4,
-                    {
-                        'type': 'formula',
-                        'criteria': f'=$E{row_num + 1}=$I{row_num + 1}',
-                        'format': workbook.add_format({'bg_color': pastel_green})
-                    }
-                )
-
-                # Color manual extraction red if it is wrong
-                worksheet.conditional_format(
-                    row_num, 5,  # Column F
-                    row_num, 5,
-                    {
-                        'type': 'formula',
-                        'criteria': f'=$F{row_num + 1}<>$I{row_num + 1}',
-                        'format': workbook.add_format({'bg_color': pastel_red})
-                    }
-                )
-
-                # Color manual extraction green if it is right
-                worksheet.conditional_format(
-                    row_num, 5,  # Column F
-                    row_num, 5,
-                    {
-                        'type': 'formula',
-                        'criteria': f'=$F{row_num + 1}=$I{row_num + 1}',
-                        'format': workbook.add_format({'bg_color': pastel_green})
-                    }
-                )
-
-                # Color the model choice red if it is wrong
+                # Color trace_label_correct red if automatic and manual extraction are wrong
                 worksheet.conditional_format(
                     row_num, 6,  # Column G
                     row_num, 6,
                     {
                         'type': 'formula',
-                        'criteria': f'=$G{row_num + 1}<>$I{row_num + 1}',
+                        'criteria': f'=AND($E{row_num + 1}<>$J{row_num + 1},$F{row_num + 1}<>$J{row_num + 1})',
                         'format': workbook.add_format({'bg_color': pastel_red})
                     }
                 )
 
-                # Color the model choice red if it is right
+                # Color trace_label_correct green if automatic or manual extraction are right
                 worksheet.conditional_format(
                     row_num, 6,  # Column G
                     row_num, 6,
                     {
                         'type': 'formula',
-                        'criteria': f'=$G{row_num + 1}=$I{row_num + 1}',
+                        'criteria': f'=OR($E{row_num + 1}=$J{row_num + 1}, $F{row_num + 1}=$J{row_num + 1})',
                         'format': workbook.add_format({'bg_color': pastel_green})
+                    }
+                )
+
+                # Color manual extraction dark red if it is necessary (automatic extraction failed (empty or undecisive))
+                worksheet.conditional_format(
+                    row_num, 5,  # Column F
+                    row_num, 5,
+                    {
+                        'type': 'formula',
+                        'criteria': f'=AND($F{row_num + 1}="", OR($E{row_num + 1}="", ISNUMBER(SEARCH("#", $E{row_num + 1}))))',
+                        'format': workbook.add_format({'bg_color': 'red'})
+                    }
+                )
+
+                # Color model_choice_correct red if it is wrong
+                worksheet.conditional_format(
+                    row_num, 8,  # Column I
+                    row_num, 8,
+                    {
+                        'type': 'formula',
+                        'criteria': f'=$H{row_num + 1}<>$J{row_num + 1}',
+                        'format': workbook.add_format({'bg_color': pastel_red})
+                    }
+                )
+
+                # Color the model_choice_correct green if it is right
+                worksheet.conditional_format(
+                    row_num, 8,  # Column I
+                    row_num, 8,
+                    {
+                        'type': 'formula',
+                        'criteria': f'=$H{row_num + 1}=$J{row_num + 1}',
+                        'format': workbook.add_format({'bg_color': pastel_green})
+                    }
+                )
+
+                # Color labels_do_match green if they match
+                worksheet.conditional_format(
+                    row_num, 10,  # Column I
+                    row_num, 10,
+                    {
+                        'type': 'formula',
+                        'criteria': f'=OR($E{row_num + 1}=$H{row_num + 1}, $F{row_num + 1}=$H{row_num + 1})',
+                        'format': workbook.add_format({'bg_color': 'green'})
+                    }
+                )
+
+                # Color labels_do_match green if they do not match
+                worksheet.conditional_format(
+                    row_num, 10,  # Column I
+                    row_num, 10,
+                    {
+                        'type': 'formula',
+                        'criteria': f'=AND($E{row_num + 1}<>$H{row_num + 1}, $F{row_num + 1}<>$H{row_num + 1})',
+                        'format': workbook.add_format({'bg_color': 'red'})
                     }
                 )
 
@@ -174,26 +215,28 @@ class TraceAnalyzer:
 
     @staticmethod
     def extract_label_matches(sentence: str, labels: List[str]) -> List[str]:
-        remove_patterns = [
-            Template("among ${first_label} through ${last_label}")
-        ]
         label_patterns = [
             Template("(${label})"),
             Template("${label})"),
             Template(" ${label} "),
+            Template("${label}. "),
             Template("option ${label}"),
             Template("Option ${label}"),
         ]
 
         matches = {}
 
+        # Fix distracting wordings
+        sentence = sentence.replace(f"among {labels[0]} through {labels[-1]}", "")
+        sentence = sentence.replace(f"Among {labels[0]} through {labels[-1]}", "")
         for label in labels:
-            for remove_pattern in remove_patterns:
-                sentence.replace(remove_pattern.substitute(
-                    first_label=labels[0],
-                    last_label=labels[-1],
-                ), "")
+            sentence = sentence.replace(f"({label}) A ",
+                                        f"({label})")  # fixes e.g. "(D) A buildup of cooled lava: This is the correct answer!"
+
+        for label in labels:
             for label_pattern in label_patterns:
+                if f"the correct answer is ({label})" in sentence:
+                    return [label]
                 if label_pattern.substitute(label=label) in sentence:
                     if label not in matches.keys():
                         matches.update({label: []})
@@ -222,6 +265,7 @@ class TraceAnalyzer:
                 "reasoning": single_result.data["completions"][0]["reasoning"]["text"],
                 "model_choice": single_result.data["model_choice"],
                 "correct_answer": single_result.data["correct_answer"],
+                "is_correct": 1 if single_result.data["is_correct"] else 0,
             } for single_result in single_results
         ]
         model_name = test_result["model"]
@@ -242,8 +286,12 @@ class TraceAnalyzer:
                 "is the correct answer",
                 "the best answer",
                 "The best answer",
+                "the best description",
+                "the best choice",
+                "the best example",
                 "the answer is",
-                "The answer is"
+                "The answer is",
+                "Answer:"
             ]
 
         for formatted_single_result in formatted_single_results:
@@ -254,10 +302,12 @@ class TraceAnalyzer:
                 "answer_sentences": "",
                 "automatic_extraction": "",
                 "manual_extraction": "",
+                "trace_label_correct": "",
                 "model_choice": formatted_single_result["model_choice"],
-                "labels_do_match": "",
+                "model_choice_correct": formatted_single_result["is_correct"],
                 "correct_answer": formatted_single_result["correct_answer"],
-                "labels_match_and_correct": ""
+                "labels_do_match": "",
+                "comment": ""
             }
 
             trace_sentences = tokenizer.tokenize(formatted_single_result["reasoning"])
