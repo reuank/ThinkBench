@@ -420,9 +420,11 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     n_batch: int = 4096
     n_parallel: int = 1
     continuous_batching: bool = False
+    tokenize_before: bool = True
 
     process: Popen = None
     completion_url_template: Template = Template("http://localhost:${port}/completion")
+    tokenization_url_template: Template = Template("http://localhost:${port}/tokenize")
     properties_url_template: Template = Template("http://localhost:${port}/props")
     headers = {'content-type': 'application/json'}
 
@@ -581,6 +583,16 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     def create_completion(self, prompt: str, completion_config: CompletionConfig, decoder: Decoder, additional_params: Dict[str, Any]) -> CompletionResult:
         if type(decoder) == GreedyConstrainedDecoder:
             completion_config.temperature = -1.0  # Return probs even when using greedy decoding
+
+        if self.tokenize_before:
+            prompt = self.session.post(
+                url=self.tokenization_url_template.substitute(port=self.port),
+                headers=self.headers,
+                json={
+                    "content": prompt,
+                    "add_special": False
+                }
+            ).json()["tokens"]
 
         request = {
             "prompt": prompt,
