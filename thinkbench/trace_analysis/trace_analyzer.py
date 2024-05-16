@@ -1,3 +1,4 @@
+import re
 import json
 import datetime
 from string import Template
@@ -262,6 +263,8 @@ class TraceAnalyzer:
         for label in labels:
             sentence = sentence.replace(f"({label}) A ",
                                         f"({label})")  # fixes e.g. "(D) A buildup of cooled lava: This is the correct answer!"
+            sentence = sentence.replace(f"Option {label}: A ",
+                                        f"Option ({label})")  # fixes e.g. "So, the best example of physical weathering is Option B: A bulldozer pushing soil."
 
         for label in labels:
             for label_pattern in label_patterns:
@@ -302,6 +305,7 @@ class TraceAnalyzer:
         model_name = test_result["model"]
 
         unresolved_traces = []
+        ambiguous_traces = []
         extractable_traces = []
 
         table_rows = []
@@ -309,24 +313,66 @@ class TraceAnalyzer:
         tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
 
         answer_sentence_indicators = []
+        after_answer_sentence_indicators = []
+        exclusion_indicators = []
 
         if model_name == "llama-2-7b-chat" or model_name == "llama-2-13b-chat":
             answer_sentence_indicators = [
-                "the correct answer is",
-                "the correct answer among",
-                "The correct answer is",
-                "is the correct answer",
-                "the best answer",
-                "The best answer",
-                "the best description",
-                "the best choice",
-                "the best example",
-                "the answer is",
-                "The answer is",
-                "Answer:"
+                r"the correct answer is",
+                r"the correct answer among",
+                r"The correct answer is",
+                r"is the correct answer",
+                r"the best answer",
+                r"The best answer",
+                r"the best description",
+                r"the best choice",
+                r"the best example",
+                r"The best conclusion",
+                r"the most plausible conclusion",
+                r"the most likely",
+                r"the answer is",
+                r"The answer is",
+                r"Answer:",
+                #r"is correct",
+                r"Option \([A-Z0-9]\) is correct",
+                r"Option [A-Z0-9] is correct",
+                r"is the most likely explanation",
+                r"is the most likely answer",
+                r"is the most logical explanation",
+                r"This option is the best"
+            ]
+            after_answer_sentence_indicators = [
+                "This option is correct",
+                "This is correct"
+            ]
+            exclusion_indicators = [
+                r"is incorrect",
+                r"not the best choice",
+                r"may not be the best choice",
+                r"not the best",
+                r"the correct answer\?"
             ]
 
         for formatted_single_result in formatted_single_results:
+            trace_sentences = tokenizer.tokenize(formatted_single_result["reasoning"])
+            trace_answer_sentences = []
+
+            # Loop over all sentences of the reasoning trace
+            for trace_sentence_id, trace_sentence in enumerate(trace_sentences):
+                # Skip sentences which are most likely not relevant
+                if any(re.search(exclusion_indicator, trace_sentence) for exclusion_indicator in exclusion_indicators):
+                    continue
+
+                # Check for matches with after_answer_sentence_indicator
+                if any(after_answer_sentence_indicator in trace_sentence for after_answer_sentence_indicator in after_answer_sentence_indicators):  # Include sentence before
+                    if len(TraceAnalyzer.extract_label_matches(trace_sentence, formatted_single_result["labels"])) == 0:  # Indicator stands alone, not e.g. "Option (B) improve existing products: This option is correct!"
+                        trace_answer_sentences.append(trace_sentences[trace_sentence_id-1] + "\n" + trace_sentence)
+                        continue
+
+                # If sentence is not skipped until here, search for answer indicators
+                if any(re.search(answer_sentence_indicator, trace_sentence) for answer_sentence_indicator in answer_sentence_indicators):
+                    trace_answer_sentences.append(trace_sentence)
+
             table_row = {
                 "question_id": formatted_single_result["question_id"],
                 "question": formatted_single_result["question"],
@@ -342,18 +388,8 @@ class TraceAnalyzer:
                 "comment": ""
             }
 
-            trace_sentences = tokenizer.tokenize(formatted_single_result["reasoning"])
-            trace_answer_sentences = []
-
-            # Loop over all sentences of the reasoning trace
-            for trace_sentence_id, trace_sentence in enumerate(trace_sentences):
-                # Check for matches with answer_sentence_indicators
-                if any(answer_sentence_indicator in trace_sentence for answer_sentence_indicator in answer_sentence_indicators):
-                    trace_answer_sentences.append(trace_sentence)
-
             # At least one answer sentence was found
             if len(trace_answer_sentences) > 0:
-                # table_row.update(is_extractable=True)
                 table_row.update(answer_sentences="\n###\n".join(trace_answer_sentences))
 
                 extracted_labels = []
@@ -362,19 +398,25 @@ class TraceAnalyzer:
 
                 extracted_labels = set(extracted_labels)
 
+                if len(extracted_labels) > 1:
+                    ambiguous_traces.append([trace_sentences, trace_answer_sentences, list(extracted_labels), formatted_single_result["correct_answer"]])
+
                 table_row.update(automatic_extraction="\n###\n".join(extracted_labels))
 
                 extractable_traces.append([trace_answer_sentences, extracted_labels])
             else:
-                # table_row.update(is_extractable=False)
                 table_row.update(answer_sentences="")
 
-                unresolved_traces.append([trace_answer_sentences])
+                unresolved_traces.append([formatted_single_result["question_id"], trace_sentences])
 
             table_rows.append(table_row)
 
+        print(json.dumps(ambiguous_traces, indent=2))
         print(f"Traces containing an extractable answer: {len(extractable_traces)}")
-        print(f"Traces unresolved: {len(unresolved_traces)}")
+        print(f"Unresolved traces: {len(unresolved_traces)}")
+        print(f"Ambiguous traces: {len(ambiguous_traces)}")
+        # print(json.dumps(unresolved_traces, indent=2))
+        # print(json.dumps(extractable_traces, indent=2))
 
         return {
             "model_name": model_name,
