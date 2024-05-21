@@ -5,10 +5,11 @@ from string import Template
 
 import nltk.data
 import xlsxwriter
-from pathlib import Path
 from typing import List, Dict
 
 import fire
+
+from utils import result_loader
 
 
 class SingleResult:
@@ -19,35 +20,15 @@ class SingleResult:
 class TraceAnalyzer:
     @staticmethod
     def analyze(method: str, result_file: str, baseline_result_file: str = None):
-        result_file_path: Path = Path(result_file)
-
-        if result_file_path.is_dir():
-            raise ValueError("Result file path is a directory.")
-        elif result_file_path is None:
-            raise ValueError("The result file path is invalid.")
-
         baseline_result_file_data = None
         if baseline_result_file:
-            baseline_result_file_path: Path = Path(baseline_result_file)
-            if baseline_result_file_path.is_dir():
-                raise ValueError("Baseline result file path is a directory.")
+            baseline_result_file_data = result_loader.load_result_file(baseline_result_file)
 
-            baseline_result_file_data = TraceAnalyzer.load_result_file(baseline_result_file_path)
-
-        result_file_data = TraceAnalyzer.load_result_file(result_file_path)
-
+        result_file_data = result_loader.load_result_file(result_file)
 
         analysis_result = TraceAnalyzer.method_mapping[method](result_file_data, baseline_result_file_data)
 
-        #TraceAnalyzer.write_to_json_file(analysis_results, "test")
         TraceAnalyzer.write_to_xlsx(analysis_result)
-
-    @staticmethod
-    def load_result_file(file: Path):
-        file = open(file)
-        data = json.load(file)
-
-        return data
 
     @staticmethod
     def get_single_results(data: Dict) -> List[SingleResult]:
@@ -72,9 +53,11 @@ class TraceAnalyzer:
         cols = [
             "question_id",
             "question",
+            "answer_options",
+            "correct_answer",
+
             "reasoning",
             "answer_sentences",
-
             "automatic_extraction",
             "manual_extraction",
             "error",
@@ -87,8 +70,6 @@ class TraceAnalyzer:
             "baseline_model_choice",
             "baseline_model_choice_correct",
             "runs_match",
-
-            "correct_answer",
 
             "comment"
         ]
@@ -136,6 +117,7 @@ class TraceAnalyzer:
         for col_num, col_data in enumerate(analysis_result["result_rows"][0].keys()):
             worksheet.set_column(col_num + padding_top_left, col_num + padding_top_left, 10)
         worksheet.set_column(f"{col_letter('question')}:{col_letter('question')}", 30)
+        worksheet.set_column(f"{col_letter('answer_options')}:{col_letter('question')}", 30)
         worksheet.set_column(f"{col_letter('reasoning')}:{col_letter('reasoning')}", 60)
         worksheet.set_column(f"{col_letter('answer_sentences')}:{col_letter('answer_sentences')}", 30)
         worksheet.set_column(f"{col_letter('comment')}:{col_letter('comment')}", 30)
@@ -143,7 +125,7 @@ class TraceAnalyzer:
         # Write table content
         for row_num, row_data in enumerate(analysis_result["result_rows"]):
             for col_num, cell_data in enumerate(list(row_data.values())):
-                if col_num == col_id("answer_sentences", True):
+                if col_num == col_id("correct_answer", True):
                     worksheet.write(row_num + 2, col_num + 1, cell_data, thick_border_right_format)
                 elif col_num == col_id("trace_label_correct", True):
                     worksheet.write_formula(row_num + 2, col_num + 1, f'=IF(OR('
@@ -152,7 +134,7 @@ class TraceAnalyzer:
                 elif col_num == col_id("labels_match", True):
                     worksheet.write_formula(row_num + 2, col_num + 1, f'=IF(OR(${col_letter("automatic_extraction")}{row_num + 3}=${col_letter("model_choice")}{row_num + 3}, ${col_letter("manual_extraction")}{row_num + 3}=${col_letter("model_choice")}{row_num + 3}), 1, 0)', thick_border_right_format)
                 elif col_num == col_id("runs_match", True):
-                    worksheet.write_formula(row_num + 2, col_num + 1, f'=IF(${col_letter("baseline_model_choice")}{row_num + 3}=${col_letter("model_choice")}{row_num + 3}, 1, 0)',thick_border_right_format)
+                    worksheet.write_formula(row_num + 2, col_num + 1, f'=IF(${col_letter("baseline_model_choice")}{row_num + 3}=${col_letter("model_choice")}{row_num + 3}, 1, 0)', thick_border_right_format)
                 elif col_num == col_id("manual_extraction", True) or col_num == col_id("error", True) or col_num == col_id("comment", True):
                     worksheet.write(row_num + 2, col_num + 1, cell_data, cell_format_unlocked)
                 else:
@@ -392,6 +374,7 @@ class TraceAnalyzer:
             {
                 "question_id": single_result.data["question_id"],
                 "question": single_result.data["question"],
+                "last_prompt": single_result.data["last_prompt"],
                 "labels": single_result.data["labels"],
                 "reasoning": single_result.data["completions"][0]["reasoning"]["text"].strip(),
                 "model_choice": single_result.data["model_choice"],
@@ -414,44 +397,46 @@ class TraceAnalyzer:
         after_answer_sentence_indicators = []
         exclusion_indicators = []
 
-        if model_name == "llama-2-7b-chat" or model_name == "llama-2-13b-chat":
-            answer_sentence_indicators = [
-                r"the correct answer is",
-                r"the correct answer among",
-                r"The correct answer is",
-                r"is the correct answer",
-                r"the best answer",
-                r"The best answer",
-                r"the best description",
-                r"the best choice",
-                r"the best example",
-                r"The best conclusion",
-                r"the most plausible conclusion",
-                r"the most likely",
-                r"the answer is",
-                r"The answer is",
-                r"Answer:",
-                #r"is correct",
-                r"Option \([A-Z0-9]\) is correct",
-                r"Option [A-Z0-9] is correct",
-                r"is the most likely explanation",
-                r"is the most likely answer",
-                r"is the most logical explanation",
-                r"This option is the best"
-            ]
-            after_answer_sentence_indicators = [
-                "This option is correct",
-                "This is correct",
-                "This is the correct answer",
-                "Therefore, it is the correct answer."
-            ]
-            exclusion_indicators = [
-                r"is incorrect",
-                r"not the best choice",
-                r"may not be the best choice",
-                r"not the best",
-                r"the correct answer\?"
-            ]
+        #if model_name == "llama-2-7b-chat" or model_name == "llama-2-13b-chat":
+        answer_sentence_indicators = [
+            r"the correct answer is",
+            r"the correct answer among",
+            r"The correct answer is",
+            r"is the correct answer",
+            r"the best answer",
+            r"The best answer",
+            r"the best description",
+            r"the best choice",
+            r"the best example",
+            r"The best conclusion",
+            r"the most plausible conclusion",
+            r"the most likely",
+            r"the answer is",
+            r"The answer is",
+            r"Answer:",
+            #r"is correct",
+            r"Option \([A-Z0-9]\) is correct",
+            r"option \([A-Z0-9]\) is correct",
+            r"Option [A-Z0-9] is correct",
+            r"option [A-Z0-9] is correct",
+            r"is the most likely explanation",
+            r"is the most likely answer",
+            r"is the most logical explanation",
+            r"This option is the best"
+        ]
+        after_answer_sentence_indicators = [
+            "This option is correct",
+            "This is correct",
+            "This is the correct answer",
+            "Therefore, it is the correct answer."
+        ]
+        exclusion_indicators = [
+            r"is incorrect",
+            r"not the best choice",
+            r"may not be the best choice",
+            r"not the best",
+            r"the correct answer\?"
+        ]
 
         for result_id, formatted_single_result in enumerate(formatted_single_results):
             trace_sentences = tokenizer.tokenize(formatted_single_result["reasoning"])
@@ -476,9 +461,11 @@ class TraceAnalyzer:
             table_row = {
                 "question_id": formatted_single_result["question_id"],
                 "question": formatted_single_result["question"],
+                "answer_options": re.search("\n\nAnswer Choices:\n(.*)\n\nAmong", formatted_single_result["last_prompt"], re.DOTALL).group(1),
+                "correct_answer": formatted_single_result["correct_answer"],
+
                 "reasoning": formatted_single_result["reasoning"],
                 "answer_sentences": "",
-
                 "automatic_extraction": "",
                 "manual_extraction": "",
                 "error": "",
@@ -491,8 +478,6 @@ class TraceAnalyzer:
                 "baseline_model_choice": baseline_model_choices[result_id] if baseline_test_result else "",
                 "baseline_model_choice_correct": (1 if baseline_model_choices[result_id] == formatted_single_result["correct_answer"] else 0) if baseline_test_result else "",
                 "runs_match": "",
-
-                "correct_answer": formatted_single_result["correct_answer"],
 
                 "comment": ""
             }
