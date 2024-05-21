@@ -7,6 +7,7 @@ from typing import List, Dict
 
 class Numbering(Enum):
     UNCHANGED = "unchanged"
+    LETTERS = "letters"
     NUMBERS = "numbers"
     ROMAN = "roman"
 
@@ -46,6 +47,9 @@ class SingleDataInstance:
     def substitute_labels(self, numbering: Numbering):
         if numbering == Numbering.UNCHANGED:
             pass
+        elif numbering == Numbering.LETTERS:
+            if all(label.isnumeric() for label in self.answer_labels):
+                self.answer_labels = [f"{chr(64 + int(x))}" for x in self.answer_labels]  # Generate ["A", "B"] from ["1", "2"]
         elif numbering == Numbering.NUMBERS:
             self.answer_labels = [f"{x + 1}" for x in range(len(self.answer_labels))]  # Generate ["1", "2"] from ["A", "B"]
         else:
