@@ -9,7 +9,7 @@ import seaborn as sns
 from utils import result_loader
 
 
-def calculate_for_file(result_file: str, confidence_level: float = 0.99):
+def calculate_for_file(result_file: str, confidence_level: float = 0.95):
     result_file_data = result_loader.load_result_file(result_file)
     metrics = result_file_data["metrics"]
     total_questions = metrics["total_results"]
@@ -71,12 +71,15 @@ def calculate_confidence_interval(correct_answers, total_questions, confidence_l
     return p, lower_bound, upper_bound, margin
 
 
-def plot_confusion_matrix(results):
+def plot_confusion_matrix(results, ignore_odd_label_counts = True):
     # Extract correct answers and model choices
     correct_answers = []
     model_choices = []
 
     for result in results:
+        if ignore_odd_label_counts and len(result["labels"]) != 4:
+            continue
+
         correct_answers.append(result['correct_answer'])
         model_choices.append(result['model_choice'])
 
