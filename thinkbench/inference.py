@@ -278,7 +278,7 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
         # Use first intersecting quantization method by default
         hf_repo, hf_filename = model_config.quantized_model_repos[intersection[0]]
 
-        InferenceBackend.ensure_hf_model_is_downloaded(local_path=self.model_folder_path, hf_repo=hf_filename, model_filename=hf_filename)
+        InferenceBackend.ensure_hf_model_is_downloaded(local_path=self.model_folder_path, hf_repo=hf_repo, model_filename=hf_filename)
 
         # Load correct Tokenizer
         if model_config.use_hf_tokenizer:
@@ -917,7 +917,7 @@ class TransformersInferenceBackend(InferenceBackend):
         # Use first intersecting quantization method by default
         hf_repo, hf_filename = model_config.quantized_model_repos[intersection[0]]
 
-        InferenceBackend.ensure_hf_model_is_downloaded(local_path=self.model_folder_path, hf_repo=hf_filename, model_filename=hf_filename)
+        InferenceBackend.ensure_hf_model_is_downloaded(local_path=self.model_folder_path, hf_repo=hf_repo, model_filename=hf_filename)
 
         # Load correct Tokenizer
         if model_config.use_hf_tokenizer:
