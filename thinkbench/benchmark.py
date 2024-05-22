@@ -31,6 +31,28 @@ class Metrics(TypedDict):
 
 
 class Benchmark(ABC):
+    default_optional_context_template = (
+        "{% if single_data_instance.context %}"
+        "Passage:\n"
+        "{{ single_data_instance.context }}"
+        "\n\n"
+        "{% endif %}"
+    )
+
+    default_question_template = (
+        "Question:\n"
+        "{{ single_data_instance.question }}"
+        "\n\n"
+    )
+
+    default_answer_option_template = (
+        "Answer Choices:\n"
+        "{% for label in single_data_instance.answer_labels %}"
+        "({{ label }}) {{ single_data_instance.answer_texts[loop.index0] }}{{ '\n' if not loop.last }}"
+        "{% endfor %}"
+        "\n\n"
+    )
+
     @property
     def name(self):
         return self.__class__.__name__
@@ -119,8 +141,9 @@ class ScoringBenchmarkType(Benchmark, ABC):
 class NonCoTStandardBenchmark(LabelGenerationBenchmarkType):
     def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
         prompt_chains = [
-            PromptChain().add_default_question_template()
-                         .add_default_answer_options_template()
+            PromptChain().add_template(self.default_optional_context_template)
+                         .add_template(self.default_question_template)
+                         .add_template(self.default_answer_option_template)
                          .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
                                        "{{ single_data_instance.answer_labels[-1] }}, the correct answer is: ")
                          .get_completion(max_logprobs=50, decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels), name="label")
@@ -132,8 +155,9 @@ class NonCoTStandardBenchmark(LabelGenerationBenchmarkType):
 class NonCoTExplicitInstructionBenchmark(NonCoTStandardBenchmark):
     def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
         prompt_chains = [
-            PromptChain().add_default_question_template()
-                         .add_default_answer_options_template()
+            PromptChain().add_template(self.default_optional_context_template)
+                         .add_template(self.default_question_template)
+                         .add_template(self.default_answer_option_template)
                          .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
                                        "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer? ")
                          .add_template("Just answer with the correct label, e.g. with {{ single_data_instance.answer_labels[0]}}"
@@ -147,8 +171,9 @@ class NonCoTExplicitInstructionBenchmark(NonCoTStandardBenchmark):
 class CoTStandardBenchmark(LabelGenerationBenchmarkType):
     def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
         prompt_chains = [
-            PromptChain().add_default_question_template()
-                         .add_default_answer_options_template()
+            PromptChain().add_template(self.default_optional_context_template)
+                         .add_template(self.default_question_template)
+                         .add_template(self.default_answer_option_template)
                          .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
                                        "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer?\n\n")
                          .add_text("Let's think step by step.")
@@ -163,8 +188,9 @@ class CoTStandardBenchmark(LabelGenerationBenchmarkType):
 class CoTVariant1Benchmark(LabelGenerationBenchmarkType):
     def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
         prompt_chains = [
-            PromptChain().add_default_question_template()
-                         .add_default_answer_options_template()
+            PromptChain().add_template(self.default_optional_context_template)
+                         .add_template(self.default_question_template)
+                         .add_template(self.default_answer_option_template)
                          .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
                                        "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer?\n\n")
                          .add_text("Let's think step by step.")
@@ -183,7 +209,8 @@ class NonCoTScoreIndividuallyBenchmark(ScoringBenchmarkType):
 
         for text in single_data_instance.answer_texts:
             prompt_chains.append(
-                PromptChain().add_default_question_template()
+                PromptChain().add_template(self.default_optional_context_template)
+                             .add_template(self.default_question_template)
                              .add_text(f"Answer: {text}")
                              .get_completion()
             )
