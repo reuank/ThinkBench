@@ -215,8 +215,8 @@ class LogiQA2Dataset(HFDataset):
             row_name="",
             context=str(dataset_row["passage"]),
             question=str(dataset_row["question"]),
-            answer_texts=dataset_row["choices"]["text"],
-            answer_labels=SingleDataInstance.get_default_labels(len(dataset_row["choices"]["text"])),
+            answer_texts=dataset_row["options"],
+            answer_labels=SingleDataInstance.get_default_labels(len(dataset_row["options"])),
             correct_key=dataset_row["answer"]
         )
 

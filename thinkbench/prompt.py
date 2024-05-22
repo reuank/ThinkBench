@@ -49,6 +49,14 @@ class PromptCompletionStep(PromptStep):
 
 
 class PromptChain:
+    default_optional_context_template = (
+        "{% if single_data_instance.context %}"
+        "Passage:\n"
+        "{{ single_data_instance.context }}"
+        "\n\n"
+        "{% endif %}"
+    )
+
     default_question_template = (
         "Question:\n"
         "{{ single_data_instance.question }}"
@@ -67,6 +75,7 @@ class PromptChain:
         self.steps: list[PromptStep] = []
 
     def add_default_question_template(self) -> "PromptChain":
+        self.add_template(self.default_optional_context_template)
         self.add_template(self.default_question_template)
         return self
 

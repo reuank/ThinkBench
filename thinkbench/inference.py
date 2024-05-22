@@ -199,7 +199,7 @@ class InferenceBackend(ABC):
                 previous_completion_texts = completion_history.get_texts()
 
                 try:
-                    filled_prompt = Template(unfilled_prompt).substitute(previous_completion_texts)
+                    filled_prompt = Template(unfilled_prompt).safe_substitute(previous_completion_texts)
                 except ValueError:
                     raise ValueError("Provided prompt variables not correct.")
 
