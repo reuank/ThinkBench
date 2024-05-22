@@ -85,10 +85,10 @@ def plot_confusion_matrix(results, ignore_odd_label_counts = True):
 
     # Calculate the confusion matrix
     labels = sorted(set(correct_answers + model_choices))  # Ensure all possible labels are included
-    conf_matrix = sklearn.metrics.confusion_matrix(correct_answers, model_choices, labels=labels, normalize='true')
+    conf_matrix = sklearn.metrics.confusion_matrix(correct_answers, model_choices, labels=labels)
 
     plt.figure(figsize=(10, 7))
-    sns.heatmap(conf_matrix, annot=True, cmap='Blues', xticklabels=labels, yticklabels=labels)
+    sns.heatmap(conf_matrix, annot=True, cmap='Blues', fmt='d', xticklabels=labels, yticklabels=labels)
     plt.xlabel('Model Choice')
     plt.ylabel('Correct Answer')
     plt.title('Confusion Matrix')
