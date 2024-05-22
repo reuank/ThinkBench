@@ -1,6 +1,7 @@
 import json
 import time
 from abc import ABC, abstractmethod
+from collections import deque
 from enum import Enum
 from typing import List, Dict
 
@@ -14,6 +15,16 @@ class Numbering(Enum):
     @staticmethod
     def get_default():
         return Numbering.UNCHANGED
+
+
+class Permutation(Enum):
+    UNCHANGED = "unchanged"
+    ADVANCE1 = "advance-1"
+    ADVANCE2 = "advance-2"
+
+    @staticmethod
+    def get_default():
+        return Permutation.UNCHANGED
 
 
 class SingleDataInstance:
@@ -54,6 +65,30 @@ class SingleDataInstance:
             self.answer_labels = [f"{x + 1}" for x in range(len(self.answer_labels))]  # Generate ["1", "2"] from ["A", "B"]
         else:
             raise ValueError(f"Numbering {numbering.value} not implemented.")
+
+        return self
+
+    @staticmethod
+    def rotate_list(list_to_rotate: List, rotations: int):
+        rotated_list = deque(list_to_rotate)
+        rotated_list.rotate(rotations)
+
+        return list(rotated_list)
+
+
+    def permute_labels(self, permutation: Permutation):
+        correct_answer = self.answer_texts[self.correct_key]
+
+        if permutation == Permutation.UNCHANGED:
+            pass
+        elif permutation == Permutation.ADVANCE1:
+            self.answer_texts = self.rotate_list(self.answer_texts, 1)
+            self.correct_key = self.answer_texts.index(correct_answer)
+        elif permutation == Permutation.ADVANCE2:
+            self.answer_texts = self.rotate_list(self.answer_texts, 2)
+            self.correct_key = self.answer_texts.index(correct_answer)
+        else:
+            raise ValueError(f"Permutation {permutation.value} not implemented.")
 
         return self
 

@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 import fire
 
 from benchmark import Benchmark
-from dataset import Dataset, Numbering
+from dataset import Dataset, Numbering, Permutation
 from inference import InferenceBackend, ModelConfig, LlamaCppServerInferenceBackend
 from storage import StorageBackend, JsonFileStorage
 
@@ -15,7 +15,7 @@ from tabulate import tabulate
 
 class ThinkBench:
     @staticmethod
-    def run_benchmarks(models, datasets, inference_backend="default", benchmarks="default", limit=-1, labels="unchanged", use_chat_template=False, verbose=False, comment=""):
+    def run_benchmarks(models, datasets, inference_backend="default", benchmarks="default", limit=-1, labels="unchanged", permutation="unchanged", use_chat_template=False, verbose=False, comment=""):
         processed_arguments: Dict[str, Any] = ThinkBench.process_arguments(
             models,
             datasets,
@@ -23,6 +23,7 @@ class ThinkBench:
             benchmarks,
             limit,
             labels,
+            permutation,
             use_chat_template,
             verbose,
             comment
@@ -58,10 +59,11 @@ class ThinkBench:
 
                 dataset = cached_datasets[dataset_name]
                 label_numbering: Numbering = Numbering(labels)
+                label_permutation: Permutation = Permutation(permutation)
 
                 for benchmark_name in processed_arguments["benchmark_names"]:
                     benchmark: Benchmark = Benchmark.get_by_name(benchmark_name)
-                    test_case: TestCase = TestCase(dataset, limit, label_numbering, benchmark, use_chat_template)  # num-fewshot # use chat templates
+                    test_case: TestCase = TestCase(dataset, limit, label_numbering, label_permutation, benchmark, use_chat_template)  # num-fewshot # use chat templates
                     test_case_result: TestCaseResult = inference_backend.run_test_case(test_case, comment)
 
                     metrics_list.append([
@@ -83,7 +85,7 @@ class ThinkBench:
             inference_backend.terminate_all_running_servers()
 
     @staticmethod
-    def process_arguments(models, datasets, inference_backend, benchmarks, limit, labels, use_chat_template, verbose, comment):
+    def process_arguments(models, datasets, inference_backend, benchmarks, limit, labels, permutation, use_chat_template, verbose, comment):
         def _ensure_list(parameter: str | List[str]) -> List[str]:
             if "," in parameter:
                 parameter = parameter.split(",")
@@ -107,6 +109,7 @@ class ThinkBench:
             "benchmark_names": _ensure_list(benchmarks),
             "limit": limit,
             "labels": labels,
+            "permutation": permutation,
             "use_chat_template": use_chat_template,
             "verbose": verbose,
             "comment": comment
