@@ -1,6 +1,7 @@
 import re
 import json
 import datetime
+from enum import Enum
 from string import Template
 
 import nltk.data
@@ -15,6 +16,15 @@ from utils import result_loader
 class SingleResult:
     def __init__(self, data):
         self.data = data
+
+
+class Error(Enum):
+    AMBIGUOUS = "Ambiguous"
+    NO_LABEL_PICKED = "No label picked"
+    WRONG_LABEL_PICKED = "Wrong label picked"
+    QUESTION = "Question / Command"
+    EXTRACTION_FAILED = "Extraction failed"
+    OTHER_ERROR = "Other error"
 
 
 class TraceAnalyzer:
@@ -127,6 +137,8 @@ class TraceAnalyzer:
             for col_num, cell_data in enumerate(list(row_data.values())):
                 if col_num == col_id("correct_answer", True):
                     worksheet.write(row_num + 2, col_num + 1, cell_data, thick_border_right_format)
+                elif col_num == col_id("reasoning", True):
+                    worksheet.write(row_num + 2, col_num + 1, cell_data, cell_format_unlocked)
                 elif col_num == col_id("trace_label_correct", True):
                     worksheet.write_formula(row_num + 2, col_num + 1, f'=IF(OR('
                                                                       f'${col_letter("automatic_extraction")}{row_num + 3}=${col_letter("correct_answer")}{row_num + 3}, '
@@ -158,7 +170,7 @@ class TraceAnalyzer:
             start_row + 1, col_id("error"), end_row, col_id("error"),
             {
                 'validate': 'list',
-                'source': ['Ambiguous', 'No label picked', 'Wrong label picked', 'Question', 'Extraction failed', 'Other error']
+                'source': [error.value for error in Error]
             }
         )
 
@@ -320,7 +332,7 @@ class TraceAnalyzer:
         workbook.close()
 
     @staticmethod
-    def extract_label_matches(sentence: str, labels: List[str]) -> List[str]:
+    def extract_label_matches_from_sentence(sentence: str, labels: List[str]) -> List[str]:
         label_patterns = [
             Template("(${label})"),
             Template("${label})"),
@@ -439,7 +451,20 @@ class TraceAnalyzer:
         ]
 
         for result_id, formatted_single_result in enumerate(formatted_single_results):
-            trace_sentences = tokenizer.tokenize(formatted_single_result["reasoning"])
+            split_paragraphs = True
+
+            if split_paragraphs:
+                # Step 1: Split the text by double linebreaks
+                paragraphs = formatted_single_result["reasoning"].split('\n\n')
+
+                # Step 2: Tokenize sentences within each paragraph
+                trace_sentences = []
+                for paragraph in paragraphs:
+                    sentences = tokenizer.tokenize(paragraph)
+                    trace_sentences.extend(sentences)
+            else:
+                trace_sentences = tokenizer.tokenize(formatted_single_result["reasoning"])
+
             trace_answer_sentences = []
 
             # Loop over all sentences of the reasoning trace
@@ -450,7 +475,7 @@ class TraceAnalyzer:
 
                 # Check for matches with after_answer_sentence_indicator
                 if any(after_answer_sentence_indicator in trace_sentence for after_answer_sentence_indicator in after_answer_sentence_indicators):  # Include sentence before
-                    if len(TraceAnalyzer.extract_label_matches(trace_sentence, formatted_single_result["labels"])) == 0:  # Indicator stands alone, not e.g. "Option (B) improve existing products: This option is correct!"
+                    if len(TraceAnalyzer.extract_label_matches_from_sentence(trace_sentence, formatted_single_result["labels"])) == 0:  # Indicator stands alone, not e.g. "Option (B) improve existing products: This option is correct!"
                         trace_answer_sentences.append(trace_sentences[trace_sentence_id-1] + "\n" + trace_sentence)
                         continue
 
@@ -488,27 +513,25 @@ class TraceAnalyzer:
 
                 extracted_labels = []
                 for trace_answer_sentence in trace_answer_sentences:
-                    extracted_labels += TraceAnalyzer.extract_label_matches(trace_answer_sentence, formatted_single_result["labels"])
+                    extracted_labels += TraceAnalyzer.extract_label_matches_from_sentence(trace_answer_sentence, formatted_single_result["labels"])
 
                 extracted_labels = set(extracted_labels)
 
                 if len(extracted_labels) > 1:
+                    table_row.update(error=Error.AMBIGUOUS.value)
                     ambiguous_traces.append([trace_sentences, trace_answer_sentences, list(extracted_labels), formatted_single_result["correct_answer"]])
 
                 table_row.update(automatic_extraction="\n###\n".join(extracted_labels))
-
                 extractable_traces.append([trace_answer_sentences, extracted_labels])
             else:
                 table_row.update(answer_sentences="")
-
                 unresolved_traces.append([formatted_single_result["question_id"], trace_sentences])
 
             table_rows.append(table_row)
 
-        print(json.dumps(ambiguous_traces, indent=2))
-        print(f"Traces containing an extractable answer: {len(extractable_traces)}")
+        print(json.dumps(unresolved_traces, indent=2))
+        print(f"Traces containing an extractable answer: {len(extractable_traces)}. \n-> {len(ambiguous_traces)} of them are ambiguous.")
         print(f"Unresolved traces: {len(unresolved_traces)}")
-        print(f"Ambiguous traces: {len(ambiguous_traces)}")
         # print(json.dumps(unresolved_traces, indent=2))
         # print(json.dumps(extractable_traces, indent=2))
 
