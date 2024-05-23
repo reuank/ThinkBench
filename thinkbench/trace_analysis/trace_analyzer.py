@@ -21,12 +21,54 @@ class SingleResult:
 
 
 class Error(Enum):
-    AMBIGUOUS = "Ambiguous"
-    NO_LABEL_PICKED = "No label picked"
-    WRONG_LABEL_PICKED = "Wrong label picked"
-    QUESTION = "Question / Command"
-    EXTRACTION_FAILED = "Extraction failed"
-    OTHER_ERROR = "Other error"
+    """
+    Label
+    -> Comment
+        Example:
+    ===============
+    Ambiguous
+    -> Definitely ambiguous
+        Example: "So, the correct answer is (A) or (B).""
+
+    Extraction failed
+    -> Pattern failed
+        Example 1: "Option (D) grow flowers in the community garden is correct!"
+
+        Example 2: "Option D, a mountain chain, is correct!"
+
+        Example 3: "Step 2: Choose the correct option. \n\n (C) hairs help keep people warm by providing insulation."
+
+        Example 4: "Option D: Observe the plants to identify the source of the damage. \n Observing the plants to identify the source of the damage is the correct answer."
+
+        Example 5: "Comparing the remaining choices (A) and (C), we can conclude that the best answer is (A) A chemical change took place, as it is more directly supported by the observation of gas bubbles and the buzzing sound."
+
+        Example 6: "This leaves us with (A) chloroplast and mitochondrion as the correct answer."
+
+        Example 7: "Based on this information, we can eliminate options A, C, and D. The best answer is (B) radiation from the Sun."
+
+    -> Wording is answer dependent
+        Example 1: "Therefore, the LEAST helpful tool for sending a message from Ravi to his friend in India is the pencil.""
+
+        Example 2: "Answer: The best way to determine whether two people are related is by comparing their genes."
+
+    No label picked
+    -> No option picked at all
+        Example: "Therefore, the correct answer is (E) none of the above."
+
+    -> Rest: Unsure, just talking
+    """
+
+    AMBIGUOUS = "Ambiguous"  # e.g. "Option 2 is correct; Option 4 is correct; Therefore, Option 2 is correct"
+                             # OR "Option 2 is correct; Option 4 is correct; Therefore, Option 2 and Option 4 are correct"
+    NO_LABEL_PICKED = "No label picked"  # e.g. "Option A is likely, Option B is more likely, Option C is unlikely"
+                                         # OR "None of the answers are correct."
+    QUESTION = "Question / Command"  # e.g. "What do you think?"
+    EXTRACTION_FAILED = "Extraction failed"  # e.g. Therefore, Option (B) is correct: 2 A
+                                             # OR "The answer 'inform them' is correct." (where 'inform them' corresponds to an actual option)
+    OTHER_ERROR = "Other error"  # e.g. Mismatch of Option and Label
+    RESERVED_ERROR_1 = "Reserved error 1"
+    RESERVED_ERROR_2 = "Reserved error 2"
+    RESERVED_ERROR_3 = "Reserved error 3"
 
 
 class TraceAnalyzer:
