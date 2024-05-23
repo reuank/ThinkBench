@@ -139,14 +139,16 @@ class TraceAnalyzer:
         cell_format = workbook.add_format({
             "align": "left",
             "valign": "top",
-            "text_wrap": True
+            "text_wrap": True,
+            "num_format": "@"
         })
 
         cell_format_unlocked = workbook.add_format({
             "align": "left",
             "valign": "top",
             "text_wrap": True,
-            "locked": False
+            "locked": False,
+            "num_format": "@"
         })
 
         thick_border_right_format = workbook.add_format({
@@ -154,6 +156,7 @@ class TraceAnalyzer:
             'valign': 'top',
             'text_wrap': True,
             'right': 5,
+            "num_format": "@"
         })
 
         cell_format_unlocked_thick_border_left = workbook.add_format({
@@ -161,7 +164,8 @@ class TraceAnalyzer:
             "valign": "top",
             "text_wrap": True,
             "locked": False,
-            'left': 5
+            'left': 5,
+            "num_format": "@"
         })
 
         # Set column widths
@@ -212,9 +216,13 @@ class TraceAnalyzer:
         worksheet.add_table(start_row, start_col, end_row, end_col, {
             "total_row": 1,
             'columns': [
-                {'header': col, 'total_function': 'sum'} for col in cols
+                {'header': col, 'total_function': 'count'} for col in cols
             ]
         })
+
+        for col in cols:
+            if col in ["trace_label_correct", "model_choice_correct", "labels_match", "baseline_model_choice_correct", "runs_match"]:
+                worksheet.write_formula(end_row + 1, col_id(col), f'=COUNTIF({col_letter(col)}2:{col_letter(col)}{end_row + 1}, "1")')
 
         worksheet.data_validation(
             start_row + 1, col_id("error"), end_row, col_id("error"),
@@ -387,7 +395,7 @@ class TraceAnalyzer:
                     row_num, col_id("correct_classification"),
                     {
                         'type': 'formula',
-                        'criteria': f'=${col_letter("correct_classification")}{row_num + 1}=1',
+                        'criteria': f'=${col_letter("correct_classification")}{row_num + 1}="1"',
                         'format': workbook.add_format({'bg_color': 'green'})
                     }
                 )
@@ -398,7 +406,7 @@ class TraceAnalyzer:
                     row_num, col_id("correct_classification"),
                     {
                         'type': 'formula',
-                        'criteria': f'=AND(${col_letter("correct_classification")}{row_num + 1}<>1, ${col_letter("correct_classification")}{row_num + 1}<>"")',
+                        'criteria': f'=AND(${col_letter("correct_classification")}{row_num + 1}<>"1", ${col_letter("correct_classification")}{row_num + 1}<>"")',
                         'format': workbook.add_format({'bg_color': 'red'})
                     }
                 )
