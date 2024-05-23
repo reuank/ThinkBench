@@ -242,6 +242,7 @@ benchmark_mapping: Dict[str, callable] = {
     "non-cot-instruct": NonCoTExplicitInstructionBenchmark,
     "non-cot-score-individually": NonCoTScoreIndividuallyBenchmark,
     "cot-standard": CoTStandardBenchmark,
+    "cot-variant-0": CoTStandardBenchmark,
     "cot-variant-1": CoTVariant1Benchmark,
     "cot-variant-2": CoTVariant2Benchmark
 }

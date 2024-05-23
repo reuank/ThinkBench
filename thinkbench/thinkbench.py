@@ -15,18 +15,21 @@ from tabulate import tabulate
 
 class ThinkBench:
     @staticmethod
-    def run_benchmarks(models, datasets, inference_backend="default", benchmarks="default", limit=-1, labels="unchanged", permutation="unchanged", use_chat_template=False, verbose=False, comment=""):
+    def run_benchmarks(models, datasets, inference_backend="default", benchmarks="default", limit=-1, random=-1, labels="unchanged", permutation="unchanged", use_chat_template=False, verbose=False, comment=""):
         processed_arguments: Dict[str, Any] = ThinkBench.process_arguments(
-            models,
-            datasets,
-            inference_backend,
-            benchmarks,
-            limit,
-            labels,
-            permutation,
-            use_chat_template,
-            verbose,
-            comment
+            {
+                "models": models,
+                "datasets": datasets,
+                "inference_backend": inference_backend,
+                "benchmarks": benchmarks,
+                "limit": limit,
+                "random": random,
+                "labels": labels,
+                "permutation": permutation,
+                "use_chat_template": use_chat_template,
+                "verbose": verbose,
+                "comment": comment
+            }
         )
 
         Timer.set_verbosity(processed_arguments["verbose"])  # TODO: make verbosity controllable globally via config
@@ -63,7 +66,7 @@ class ThinkBench:
 
                 for benchmark_name in processed_arguments["benchmark_names"]:
                     benchmark: Benchmark = Benchmark.get_by_name(benchmark_name)
-                    test_case: TestCase = TestCase(dataset, limit, label_numbering, label_permutation, benchmark, use_chat_template)  # num-fewshot # use chat templates
+                    test_case: TestCase = TestCase(dataset, limit, random, label_numbering, label_permutation, benchmark, use_chat_template)  # num-fewshot # use chat templates
                     test_case_result: TestCaseResult = inference_backend.run_test_case(test_case, comment)
 
                     metrics_list.append([
@@ -85,7 +88,7 @@ class ThinkBench:
             inference_backend.terminate_all_running_servers()
 
     @staticmethod
-    def process_arguments(models, datasets, inference_backend, benchmarks, limit, labels, permutation, use_chat_template, verbose, comment):
+    def process_arguments(parameters):
         def _ensure_list(parameter: str | List[str]) -> List[str]:
             if "," in parameter:
                 parameter = parameter.split(",")
@@ -94,26 +97,19 @@ class ThinkBench:
 
             return parameter
 
-        if models == "all-required":
-            models = ModelConfig.get_all_required_names()
-        elif models == "all":
-            models = ModelConfig.get_all_names()
+        if parameters["models"] == "all-required":
+            parameters["models"] = ModelConfig.get_all_required_names()
+        elif parameters["models"] == "all":
+            parameters["models"] = ModelConfig.get_all_names()
 
-        if datasets == "all":
-            datasets = Dataset.get_all_names()
+        if parameters["datasets"] == "all":
+            parameters["datasets"] = Dataset.get_all_names()
 
-        return {
-            "model_names": _ensure_list(models),
-            "dataset_names": _ensure_list(datasets),
-            "inference_backend": inference_backend,
-            "benchmark_names": _ensure_list(benchmarks),
-            "limit": limit,
-            "labels": labels,
-            "permutation": permutation,
-            "use_chat_template": use_chat_template,
-            "verbose": verbose,
-            "comment": comment
-        }
+        parameters.update(model_names=_ensure_list(parameters["models"]))
+        parameters.update(dataset_names=_ensure_list(parameters["datasets"]))
+        parameters.update(benchmark_names=_ensure_list(parameters["benchmarks"]))
+
+        return parameters
 
 
 if __name__ == '__main__':
