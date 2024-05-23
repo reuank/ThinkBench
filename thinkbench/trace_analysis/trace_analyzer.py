@@ -102,7 +102,7 @@ class TraceAnalyzer:
         n_results = len(results)
 
         random.seed(seed)
-        samples = [results[random.randint(0, n_results)] for i in range(0, n_samples)]
+        samples = [results[random.randint(0, n_results - 1)] for i in range(0, n_samples)]
 
         assert len(samples) == n_samples
 
