@@ -263,7 +263,7 @@ class TraceAnalyzer:
         })
 
         for col in cols:
-            if col in ["trace_label_correct", "model_choice_correct", "labels_match", "baseline_model_choice_correct", "runs_match"]:
+            if col in ["trace_label_correct", "model_choice_correct", "labels_match", "baseline_model_choice_correct", "runs_match", "correct_classification"]:
                 worksheet.write_formula(end_row + 1, col_id(col), f'=COUNTIF({col_letter(col)}2:{col_letter(col)}{end_row + 1}, "1")')
 
         worksheet.data_validation(
