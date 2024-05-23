@@ -37,12 +37,14 @@ class PromptCompletionStep(PromptStep):
     max_logprobs: int
     decoder: Decoder
     prefix: str
+    suffix: str
 
-    def __init__(self, name: str, max_tokens: int = 1, max_logprobs: int = 10, decoder: Decoder = None, prefix: str = ""):
+    def __init__(self, name: str, max_tokens: int = 1, max_logprobs: int = 10, decoder: Decoder = None, prefix: str = "", suffix: str = ""):
         self.name = name
         self.completion_config = CompletionConfig(max_tokens=max_tokens, max_logprobs=max_logprobs)
         self.decoder = decoder
         self.prefix = prefix
+        self.suffix = suffix
 
     def __repr__(self):
         return {"step_type": "completion", "max_tokens": self.completion_config.max_tokens, "max_logprobs": self.completion_config.max_logprobs, "decoder": self.decoder}
@@ -64,14 +66,15 @@ class PromptChain:
         self.steps.append(PromptTextStep(context))
         return self
 
-    def get_completion(self, name: str, max_tokens: int = 1, max_logprobs: int = 10, decoder: Decoder = None, prefix: str = "") -> "PromptChain":
+    def get_completion(self, name: str, max_tokens: int = 1, max_logprobs: int = 10, decoder: Decoder = None, prefix: str = "", suffix: str = "") -> "PromptChain":
         self.steps.append(
             PromptCompletionStep(
                 name=name,
                 max_tokens=max_tokens,
                 max_logprobs=max_logprobs,
                 decoder=decoder,
-                prefix=prefix
+                prefix=prefix,
+                suffix=suffix
             )
         )
         return self

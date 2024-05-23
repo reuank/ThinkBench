@@ -222,7 +222,7 @@ class InferenceBackend(ABC):
                 )
 
                 message = "${" + prompt_step.name + "}"
-                message_history.add_assistant_message(prompt_step.prefix + message if prompt_step.prefix else message)
+                message_history.add_assistant_message(prompt_step.prefix + message + prompt_step.suffix)
 
             else:
                 raise ValueError(f"Prompt step type {prompt_step_type} not implemented.")
