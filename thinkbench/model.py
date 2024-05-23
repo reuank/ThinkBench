@@ -89,6 +89,17 @@ model_mapping: Dict[str, ModelConfig] = {
         },
         use_hf_tokenizer=True
     ),
+    "llama-2-70b-chat": HFModelConfig(
+        model_name="llama-2-70b-chat",
+        chat_template_name="llama-2-chat",
+        hf_base_model_repo="meta-llama/Llama-2-70b-chat-hf",
+        quantized_model_repos={
+            QuantizationMethod.GGUF: ("TheBloke/Llama-2-70B-Chat-GGUF", f"llama-2-70b-chat.{gguf_file_extension}"),
+            QuantizationMethod.GPTQ: ("TheBloke/Llama-2-70B-Chat-GPTQ", default_filename),
+            QuantizationMethod.AWQ: ("TheBloke/Llama-2-70B-Chat-AWQ", default_filename),
+        },
+        use_hf_tokenizer=True
+    ),
     "orca-2-7b": HFModelConfig(
         model_name="orca-2-7b",
         chat_template_name="orca-2",
