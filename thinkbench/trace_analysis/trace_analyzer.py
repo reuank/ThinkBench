@@ -607,7 +607,7 @@ class TraceAnalyzer:
         ]
 
         if "orca" in model_name:
-            tokenizer._params.abbrev_types.remove({'a', 'b', 'c', 'd'})
+            # tokenizer._params.abbrev_types.remove({'a', 'b', 'c', 'd'})
             definite_answer_sentence_indicators.append("### Final Answer")
 
         for result_id, formatted_single_result in enumerate(formatted_single_results):
