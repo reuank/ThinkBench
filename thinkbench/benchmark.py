@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import TypedDict, Dict, List
 
 from dataset import SingleDataInstance
-from decoder import GreedyConstrainedDecoder, GreedyDecoder
+from decoder import GreedyConstrainedDecoder, GreedyDecoder, TemperatureDecoder
 from completion import CompletionResult, CompletionHistory
 from prompt import PromptChain
 
@@ -221,6 +221,24 @@ class CoTVariant2Benchmark(LabelGenerationBenchmarkType):
         return prompt_chains
 
 
+class CoTVariant1TemperatureBenchmark(LabelGenerationBenchmarkType):
+    def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
+        prompt_chains = [
+            PromptChain().add_template(self.default_optional_context_template)
+                         .add_template(self.default_question_template)
+                         .add_template(self.default_answer_option_template)
+                         .add_template("Among {{ single_data_instance.answer_labels[0] }} through "
+                                       "{{ single_data_instance.answer_labels[-1] }}, what is the correct answer?\n\n")
+                         .add_text("Let's think step by step.")
+                         .get_completion(max_tokens=2048, max_logprobs=1, decoder=TemperatureDecoder(temperature=0.8), prefix="Reasoning: ", name="reasoning")
+                         .add_template("Given this reasoning, the correct answer among labels {{ single_data_instance.answer_labels[0] }} through "
+                                       "{{ single_data_instance.answer_labels[-1] }} is: \n\n")
+                         .get_completion(max_logprobs=50, decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels), name="label")
+        ]
+
+        return prompt_chains
+
+
 class NonCoTScoreIndividuallyBenchmark(ScoringBenchmarkType):
     def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
         prompt_chains = []
@@ -244,5 +262,6 @@ benchmark_mapping: Dict[str, callable] = {
     "cot-standard": CoTStandardBenchmark,
     "cot-variant-0": CoTStandardBenchmark,
     "cot-variant-1": CoTVariant1Benchmark,
-    "cot-variant-2": CoTVariant2Benchmark
+    "cot-variant-2": CoTVariant2Benchmark,
+    "cot-variant-1-temperature": CoTVariant1TemperatureBenchmark,
 }

@@ -24,7 +24,7 @@ from llama_cpp.llama_tokenizer import LlamaHFTokenizer
 
 from benchmark import SingleBenchmarkResult
 from completion import CompletionResult, Choice, Usage, Logprobs, CompletionHistory, CompletionConfig
-from decoder import GreedyConstrainedDecoder, Decoder, GreedyDecoder, BeamSearch
+from decoder import GreedyConstrainedDecoder, Decoder, GreedyDecoder, BeamSearch, TemperatureDecoder
 from dataset import SingleDataInstance
 from model import ModelConfig, HFModelConfig, QuantizationMethod
 from prompt import PromptChain, PromptCompletionStep, PromptTemplateStep, PromptTextStep
@@ -584,8 +584,14 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         return all_results
 
     def create_completion(self, prompt: str, completion_config: CompletionConfig, decoder: Decoder, additional_params: Dict[str, Any]) -> CompletionResult:
+        samplers = []
         if type(decoder) == GreedyConstrainedDecoder:
             completion_config.temperature = -1.0  # Return probs even when using greedy decoding
+            samplers = ["temperature"]
+        elif type(decoder) == TemperatureDecoder:
+            decoder: TemperatureDecoder
+            completion_config.temperature = decoder.temperature
+            samplers = ["temperature"]
 
         if self.tokenize_before:
             prompt = self.session.post(
@@ -604,13 +610,13 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             "n_probs": completion_config.max_logprobs,
             "min_keep": completion_config.max_logprobs,
             "temperature": completion_config.temperature,
-            "samplers": ["temperature"],
+            "samplers": samplers,
             "seed": 1234,
             "repeat_last_n": 0,
             "min_p": 0.0,
             "top_p": 1.0,
             "top_k": 100,
-            "repeat_penalty": 1.0,
+            "repeat_penalty": completion_config.repeat_penalty,
             "mirostat_eta": 0.0,
             "mirostat_tau": 0.0,
             "cache_prompt": True

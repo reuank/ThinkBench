@@ -23,6 +23,13 @@ class GreedyConstrainedDecoder(GreedyDecoder):
         self.allowed_strings = allowed_strings
 
 
+class TemperatureDecoder(Decoder):
+    temperature: float
+
+    def __init__(self, temperature: float):
+        self.temperature = temperature
+
+
 class BeamSearch(Decoder):
     num_beams: int
 
