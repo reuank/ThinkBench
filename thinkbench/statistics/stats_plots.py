@@ -18,10 +18,12 @@ def calculate_for_file(result_file: str, confidence_level: float = 0.95):
 
     # General info
     print("=" * 40)
+    print(f"Run UUID: {result_file_data['uuid']}")
     print(f"Model: {result_file_data['model']}")
+    print(f"Dataset: {result_file_data['dataset_name']}")
+    print(f"Benchmark: {result_file_data['benchmark_name']}, {result_file_data['use_chat_template']}, {result_file_data['label_numbering']}")
     print(f"Total questions: {total_questions}")
     print(f"Correct answers: {correct_answers}")
-
 
     # Confidence interval
     accuracy, lower_bound, upper_bound, margin = calculate_confidence_interval(correct_answers, total_questions, confidence_level)
@@ -71,17 +73,30 @@ def calculate_confidence_interval(correct_answers, total_questions, confidence_l
     return p, lower_bound, upper_bound, margin
 
 
-def plot_confusion_matrix(results, ignore_odd_label_counts = True):
+def plot_confusion_matrix(results, ignore_odd_label_counts = True, ignore_number_labels = True):
     # Extract correct answers and model choices
     correct_answers = []
     model_choices = []
+    odd_label_count = 0
+    number_label_count = 0
 
     for result in results:
-        if ignore_odd_label_counts and len(result["labels"]) != 4:
-            continue
+        if len(result["labels"]) != 4:
+            odd_label_count += 1
+            if ignore_odd_label_counts:
+                continue
+
+        elif result["labels"][0] == "1":
+            number_label_count += 1
+            if ignore_number_labels:
+                continue
 
         correct_answers.append(result['correct_answer'])
         model_choices.append(result['model_choice'])
+
+    print("=" * 40)
+    print(f"Number of questions with label counts != 4: {odd_label_count}")
+    print(f"Number of questions with number labels: {number_label_count}")
 
     # Calculate the confusion matrix
     labels = sorted(set(correct_answers + model_choices))  # Ensure all possible labels are included
