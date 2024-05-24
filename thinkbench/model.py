@@ -98,7 +98,8 @@ model_mapping: Dict[str, ModelConfig] = {
             QuantizationMethod.GPTQ: ("TheBloke/Llama-2-70B-Chat-GPTQ", default_filename),
             QuantizationMethod.AWQ: ("TheBloke/Llama-2-70B-Chat-AWQ", default_filename),
         },
-        use_hf_tokenizer=True
+        use_hf_tokenizer=True,
+        optional=True
     ),
     "orca-2-7b": HFModelConfig(
         model_name="orca-2-7b",
