@@ -100,16 +100,36 @@ class TraceAnalyzer:
             )
 
         if method == "trace-label-match":
-            values = [
-                [
+            row_values = []
+            model_trace_ids = {}
+            for analysis_result in analysis_results:
+                row_values.append([
                     analysis_result["model_name"],
                     len(analysis_result["extractable_traces"]),
                     len(analysis_result["ambiguous_traces"]),
                     len(analysis_result["question_command_traces"]),
                     len(analysis_result["unresolved_traces"])
-                ] for analysis_result in analysis_results]
+                ])
 
-            print(tabulate(values, headers=["Model", "Extractable", "Ambiguous", "Questions", "Not extractable"], tablefmt="outline"))
+                model_trace_ids.update({analysis_result["model_name"]: analysis_result["trace_ids"]})
+
+            extractable_traces_without_problems = []
+
+            for (model_name, trace_ids) in model_trace_ids.items():
+                extractable_traces_without_problems.append(list(
+                    set(trace_ids["extractable"])
+                    - set(trace_ids["ambiguous"])
+                    - set(trace_ids["questions"])
+                ))
+
+            id_intersection = extractable_traces_without_problems[0]
+            for id_list in extractable_traces_without_problems[1:]:
+                id_intersection = list(set(id_intersection) & set(id_list))
+
+            print(f"Length of extractable intersection: {len(id_intersection)}")
+
+            print(tabulate(row_values, headers=["Model", "Extractable", "Ambiguous", "Questions", "Not extractable"], tablefmt="outline"))
+
 
     @staticmethod
     def get_single_results(data: Dict) -> List[SingleResult]:
@@ -555,9 +575,16 @@ class TraceAnalyzer:
         cot_uuid = test_result["uuid"]
 
         unresolved_traces = []
-        ambiguous_traces = []
         extractable_traces = []
+        ambiguous_traces = []
         question_command_traces = []
+
+        trace_ids = {
+            "extractable": [],
+            "ambiguous": [],
+            "questions": [],
+            "unresolved": [],
+        }
 
         table_rows = []
 
@@ -742,17 +769,21 @@ class TraceAnalyzer:
                 if len(extracted_labels) > 1:
                     table_row.update(error=Error.AMBIGUOUS.value)
                     ambiguous_traces.append([trace_sentences, trace_answer_sentences, list(extracted_labels), formatted_single_result["correct_answer"]])
+                    trace_ids["ambiguous"].append(formatted_single_result["question_id"])
 
                 table_row.update(automatic_extraction="\n======\n".join(extracted_labels))
                 extractable_traces.append([trace_answer_sentences, extracted_labels])
+                trace_ids["extractable"].append(formatted_single_result["question_id"])
 
             elif len(question_command_sentences) > 0:
                 table_row.update(error=Error.QUESTION.value)
                 question_command_traces.append([formatted_single_result["question_id"], trace_sentences, question_command_sentences])
+                trace_ids["questions"].append(formatted_single_result["question_id"])
 
             else:
                 table_row.update(answer_sentences="")
                 unresolved_traces.append([formatted_single_result["question_id"], trace_sentences])
+                trace_ids["unresolved"].append(formatted_single_result["question_id"])
 
             table_rows.append(table_row)
 
@@ -771,7 +802,8 @@ class TraceAnalyzer:
             "extractable_traces": extractable_traces,
             "ambiguous_traces": ambiguous_traces,
             "question_command_traces": question_command_traces,
-            "unresolved_traces": unresolved_traces
+            "unresolved_traces": unresolved_traces,
+            "trace_ids": trace_ids
         }
 
         return analysis
