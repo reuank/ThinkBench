@@ -1,7 +1,7 @@
+import csv
 import inspect
 import json
 import math
-import os
 from typing import List, Dict
 
 import fire
@@ -11,60 +11,36 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from tabulate import tabulate
 
-from utils import result_loader
+from utils.result_loader import ResultLoader
 
 
-def calcluate_stats_all_models(method: str, cot_results_dir: str, non_cot_results_dir: str):
-    cot_result_files = []
-    non_cot_result_files = []
+def calculate_stats_all_models(method: str, cot_results_dir: str, non_cot_results_dir: str):
+    model_names, non_cot_results_data, cot_results_data = ResultLoader.load_cot_and_non_cot_from_dirs(cot_results_dir, non_cot_results_dir)
 
-    for file in sorted(os.listdir(cot_results_dir)):
-        if file.endswith(".json"):
-            cot_result_files.append(os.path.join(cot_results_dir, file))
+    calculated_stats = {}
 
-    for file in sorted(os.listdir(non_cot_results_dir)):
-        if file.endswith(".json"):
-            non_cot_result_files.append(os.path.join(non_cot_results_dir, file))
-
-    if len(cot_result_files) != len(non_cot_result_files):
-        raise ValueError("Number of CoT and Non-CoT files are not equal.")
-
-    cot_models = [cot_result_file.split("/")[-1].split("_")[3] for cot_result_file in cot_result_files]
-    non_cot_models = [non_cot_result_file.split("/")[-1].split("_")[3] for non_cot_result_file in non_cot_result_files]
-
-    if sorted(cot_models) != sorted(non_cot_models):
-        raise ValueError("No CoT and Non-CoT result for each model.")
-
-    stats = {}
-
-    for model_name in cot_models:
-        cot_result_file = [cot_result_file for cot_result_file in cot_result_files if model_name in cot_result_file][0]
-        non_cot_result_file = [non_cot_result_file for non_cot_result_file in non_cot_result_files if model_name in non_cot_result_file][0]
-
-        cot_result_file_data = result_loader.load_result_file(cot_result_file)
-        non_cot_result_file_data = result_loader.load_result_file(non_cot_result_file)
-
-        stats.update(
-            {model_name: method_mapping[method](cot_result_file_data, non_cot_result_file_data)}
+    for model_id, model_name in enumerate(model_names):
+        calculated_stats.update(
+            {model_name: method_mapping[method](cot_results_data[model_id], non_cot_results_data[model_id])}
         )
 
-    print(json.dumps(stats, indent=2))
+    print(json.dumps(calculated_stats, indent=2))
 
-    import csv
-    with open('eggs.csv', 'w', newline='') as csvfile:
-        spamwriter = csv.writer(csvfile, delimiter=',')
-        header = ["model"] + list(list(stats.values())[0].keys())
-        spamwriter.writerow(header)
-        for (model, result) in stats.items():
+    with open('stats.csv', 'w', newline='') as csvfile:
+        stats_writer = csv.writer(csvfile, delimiter=',')
+        header = ["model"] + list(list(calculated_stats.values())[0].keys())
+        stats_writer.writerow(header)
+        for (model, result) in calculated_stats.items():
             row = [model] + list(result.values())
-            spamwriter.writerow(row)
+            stats_writer.writerow(row)
+
 
 def calculate_stats_single_model(method: str, cot_result_file: str, non_cot_result_file: str):
     non_cot_result_file_data = None
     if non_cot_result_file:
-        non_cot_result_file_data = result_loader.load_result_file(non_cot_result_file)
+        non_cot_result_file_data = ResultLoader.load_result_file(non_cot_result_file)
 
-    cot_result_file_data = result_loader.load_result_file(cot_result_file)
+    cot_result_file_data = ResultLoader.load_result_file(cot_result_file)
 
     if method == "confidence_interval":
         confidence_intervals(cot_result_file_data)
@@ -235,7 +211,6 @@ def evaluate_runs_match(cot_result_file_data, non_cot_result_file_data):
     return runs_match_result
 
 
-
 def get_model_choices(result_file_data: Dict) -> List[str]:
     return [single_result["model_choice"] for single_result in result_file_data["results"]]
 
@@ -258,4 +233,4 @@ if __name__ == '__main__':
     }
 
     print_stats = False
-    fire.Fire(calcluate_stats_all_models)
+    fire.Fire(calculate_stats_all_models)

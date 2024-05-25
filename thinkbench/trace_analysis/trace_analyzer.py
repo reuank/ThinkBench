@@ -11,8 +11,9 @@ import xlsxwriter
 from typing import List, Dict
 
 import fire
+from tabulate import tabulate
 
-from utils import result_loader
+from utils.result_loader import ResultLoader
 
 
 class SingleResult:
@@ -73,12 +74,12 @@ class Error(Enum):
 
 class TraceAnalyzer:
     @staticmethod
-    def analyze(method: str, result_file: str, baseline_result_file: str = None):
+    def analyze_single_model(method: str, result_file: str, baseline_result_file: str = None):
         baseline_result_file_data = None
         if baseline_result_file:
-            baseline_result_file_data = result_loader.load_result_file(baseline_result_file)
+            baseline_result_file_data = ResultLoader.load_result_file(baseline_result_file)
 
-        result_file_data = result_loader.load_result_file(result_file)
+        result_file_data = ResultLoader.load_result_file(result_file)
 
         analysis_result = TraceAnalyzer.method_mapping[method](result_file_data, baseline_result_file_data)
 
@@ -87,6 +88,28 @@ class TraceAnalyzer:
 
         samples = TraceAnalyzer.pick_samples(result=analysis_result, n_samples=100, seed=analysis_result["model_name"])
         TraceAnalyzer.write_to_xlsx(samples, samples=True)
+
+    @staticmethod
+    def analyze_multiple_models(method: str, cot_results_dir: str, non_cot_results_dir: str):
+        model_names, non_cot_results_data, cot_results_data = ResultLoader.load_cot_and_non_cot_from_dirs(cot_results_dir, non_cot_results_dir)
+
+        analysis_results = []
+        for model_id, model_name in enumerate(model_names):
+            analysis_results.append(
+                TraceAnalyzer.method_mapping[method](cot_results_data[model_id], non_cot_results_data[model_id])
+            )
+
+        if method == "trace-label-match":
+            values = [
+                [
+                    analysis_result["model_name"],
+                    len(analysis_result["extractable_traces"]),
+                    len(analysis_result["ambiguous_traces"]),
+                    len(analysis_result["question_command_traces"]),
+                    len(analysis_result["unresolved_traces"])
+                ] for analysis_result in analysis_results]
+
+            print(tabulate(values, headers=["Model", "Extractable", "Ambiguous", "Questions", "Not extractable"], tablefmt="outline"))
 
     @staticmethod
     def get_single_results(data: Dict) -> List[SingleResult]:
@@ -465,6 +488,13 @@ class TraceAnalyzer:
             Template(" ${label}."),
             Template("option ${label}"),
             Template("Option ${label}"),
+            # Mistral 7b instr.
+            Template(": ${label},"),  # So, the answer is: D,
+            Template("${label}:"),  # So, the most likely answer is C:
+        ]
+
+        label_exclusion_patterns = [
+            Template("not (${label})"), # the answer is not (D)
         ]
 
         matches = {}
@@ -531,7 +561,7 @@ class TraceAnalyzer:
 
         table_rows = []
 
-        nltk.download('punkt')
+        # nltk.download('punkt')
         tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
 
         answer_sentence_indicators = []
@@ -575,6 +605,10 @@ class TraceAnalyzer:
             # Orca
             r"Based on the",
             fr"Based on [{re.escape(in_sentence_chars)}]+ analysis",
+
+            # Mistral
+            r"Therefore, the",
+            r"Given the answer choices, the"
         ]
 
         after_answer_sentence_indicators = [
@@ -592,10 +626,15 @@ class TraceAnalyzer:
             r"not the correct",
             r"may not be the best choice",
             r"not the best",
+            r"the answer is not",
 
             # Orca
             r"not the most likely",
             r"we can eliminate",
+
+            # Mistral
+            r"the answer is not",
+            r"rather than"
         ]
 
         question_command_indicators = [
@@ -644,7 +683,7 @@ class TraceAnalyzer:
             # Loop over all sentences of the reasoning trace
             for trace_sentence_id, trace_sentence in enumerate(trace_sentences):
                 # Skip sentences which are most likely not relevant
-                if any(re.search(exclusion_indicator, trace_sentence) for exclusion_indicator in exclusion_indicators):
+                if any(re.search(exclusion_indicator, trace_sentence, re.IGNORECASE) for exclusion_indicator in exclusion_indicators):
                     continue
 
                 # Check for matches with after_answer_sentence_indicator
@@ -654,7 +693,7 @@ class TraceAnalyzer:
                         continue
 
                 # If sentence is not skipped until here, search for answer indicators
-                if any(re.search(answer_sentence_indicator, trace_sentence) for answer_sentence_indicator in answer_sentence_indicators):
+                if any(re.search(answer_sentence_indicator, trace_sentence, re.IGNORECASE) for answer_sentence_indicator in answer_sentence_indicators):
                     trace_answer_sentences.append(trace_sentence)
 
                 # The last sentence contains a question or a command, so the model probably did not chose a label
@@ -662,7 +701,7 @@ class TraceAnalyzer:
                     question_command_sentences.append(trace_sentence)
 
             for trace_answer_sentence in trace_answer_sentences:
-                if any(re.search(definite_answer_sentence_indicator, trace_answer_sentence) for definite_answer_sentence_indicator in definite_answer_sentence_indicators):
+                if any(re.search(definite_answer_sentence_indicator, trace_answer_sentence, re.IGNORECASE) for definite_answer_sentence_indicator in definite_answer_sentence_indicators):
                     trace_answer_sentences = [trace_answer_sentence]
                     break
 
@@ -717,10 +756,10 @@ class TraceAnalyzer:
 
             table_rows.append(table_row)
 
-        print(json.dumps(unresolved_traces, indent=2))
-        print(f"Traces containing an extractable answer: {len(extractable_traces)}. \n-> {len(ambiguous_traces)} of them are ambiguous.")
-        print(f"Traces ending with a question or a command: {len(question_command_traces)}")
-        print(f"Unresolved traces: {len(unresolved_traces)}")
+        # print(json.dumps(unresolved_traces, indent=2))
+        # print(f"Traces containing an extractable answer: {len(extractable_traces)}. \n-> {len(ambiguous_traces)} of them are ambiguous.")
+        # print(f"Traces ending with a question or a command: {len(question_command_traces)}")
+        # print(f"Unresolved traces: {len(unresolved_traces)}")
         # print(json.dumps(unresolved_traces, indent=2))
         # print(json.dumps(extractable_traces, indent=2))
 
@@ -728,7 +767,11 @@ class TraceAnalyzer:
             "cot_uuid": cot_uuid,
             "baseline_uuid": baseline_uuid,
             "model_name": model_name,
-            "result_rows": table_rows
+            "result_rows": table_rows,
+            "extractable_traces": extractable_traces,
+            "ambiguous_traces": ambiguous_traces,
+            "question_command_traces": question_command_traces,
+            "unresolved_traces": unresolved_traces
         }
 
         return analysis
@@ -739,4 +782,4 @@ class TraceAnalyzer:
 
 
 if __name__ == '__main__':
-    fire.Fire(TraceAnalyzer.analyze)
+    fire.Fire(TraceAnalyzer.analyze_multiple_models)
