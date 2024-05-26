@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from jinja2 import Template
+from jinja2 import Template, Environment
 
 from completion import CompletionConfig
 from decoder import Decoder
@@ -25,7 +25,7 @@ class PromptTemplateStep(PromptStep):
 
     def __init__(self, template_string: str):
         self.template_string = template_string
-        self.template = Template(template_string)
+        self.template = Environment(keep_trailing_newline=True).from_string(template_string)
 
     def __repr__(self):
         return {"step_type": "template", "template_string": self.template_string}
@@ -39,9 +39,9 @@ class PromptCompletionStep(PromptStep):
     prefix: str
     suffix: str
 
-    def __init__(self, name: str, max_tokens: int = 1, max_logprobs: int = 10, decoder: Decoder = None, prefix: str = "", suffix: str = ""):
+    def __init__(self, name: str, completion_config: CompletionConfig, decoder: Decoder, prefix: str = "", suffix: str = ""):
         self.name = name
-        self.completion_config = CompletionConfig(max_tokens=max_tokens, max_logprobs=max_logprobs)
+        self.completion_config = completion_config
         self.decoder = decoder
         self.prefix = prefix
         self.suffix = suffix
@@ -66,12 +66,15 @@ class PromptChain:
         self.steps.append(PromptTextStep(context))
         return self
 
-    def get_completion(self, name: str, max_tokens: int = 1, max_logprobs: int = 10, decoder: Decoder = None, prefix: str = "", suffix: str = "") -> "PromptChain":
+    def add_completion_step(self, step: PromptStep) -> "PromptChain":
+        self.steps.append(step)
+        return self
+
+    def get_completion(self, name: str, completion_config: CompletionConfig, decoder: Decoder, prefix: str = "", suffix: str = "") -> "PromptChain":
         self.steps.append(
             PromptCompletionStep(
                 name=name,
-                max_tokens=max_tokens,
-                max_logprobs=max_logprobs,
+                completion_config=completion_config,
                 decoder=decoder,
                 prefix=prefix,
                 suffix=suffix

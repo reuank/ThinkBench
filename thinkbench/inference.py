@@ -54,7 +54,7 @@ class MessageHistory:
             # there is no history so far, or last message was not a user message
             self.add_user_message(message)
         else:
-            self.messages[-1]["content"] += "\n" + message
+            self.messages[-1]["content"] += message
 
     def add_assistant_message(self, message: str):
         self.messages.append({"role": self.assistant_role, "content": message})
