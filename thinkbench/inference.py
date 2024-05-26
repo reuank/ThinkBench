@@ -431,21 +431,6 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     properties_url_template: Template = Template("http://localhost:${port}/props")
     headers = {'content-type': 'application/json'}
 
-    @property
-    def current_commit_hash(self):
-        repo = git.Repo(path=self.server_binary_path, search_parent_directories=True)
-        current_commit_hash = repo.head.object.hexsha[:8]
-
-        return current_commit_hash
-
-    @property
-    def name(self):
-        return f"{self.__class__.__name__}-{self.current_commit_hash}"
-
-    @property
-    def supported_quantization_methods(self) -> List[QuantizationMethod]:
-        return [QuantizationMethod.GGUF]
-
     def __init__(self):
         # TODO: implement ensure_exists() function or python config file
         try:
@@ -466,10 +451,26 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
                     port = 8080
                 self.port: int = int(port)
         except KeyError:
-            print("Please specify a model path, the number of server slots and the server binary path. Did you forget to source .env?")
+            print("Please specify a model path, the number of server slots and the server binary path. "
+                  "Did you forget to source .env?")
             exit()
 
         self.session: Session = Session()
+
+    @property
+    def current_commit_hash(self):
+        repo = git.Repo(path=self.server_binary_path, search_parent_directories=True)
+        current_commit_hash = repo.head.object.hexsha[:8]
+
+        return current_commit_hash
+
+    @property
+    def name(self):
+        return f"{self.__class__.__name__}-{self.current_commit_hash}"
+
+    @property
+    def supported_quantization_methods(self) -> List[QuantizationMethod]:
+        return [QuantizationMethod.GGUF]
 
     def load_model_from_config(self, model_config: ModelConfig):
         import subprocess
@@ -586,11 +587,9 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     def create_completion(self, prompt: str, completion_config: CompletionConfig, decoder: Decoder, additional_params: Dict[str, Any]) -> CompletionResult:
         samplers = []
         if type(decoder) == GreedyConstrainedDecoder:
-            completion_config.temperature = -1.0  # Return probs even when using greedy decoding
+            decoder.temperature = -1.0  # Return probs even when using greedy decoding
             samplers = ["temperature"]
         elif type(decoder) == TemperatureDecoder:
-            decoder: TemperatureDecoder
-            completion_config.temperature = decoder.temperature
             samplers = ["temperature"]
 
         if self.tokenize_before:
@@ -609,14 +608,14 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             "n_predict": completion_config.max_tokens,
             "n_probs": completion_config.max_logprobs,
             "min_keep": completion_config.max_logprobs,
-            "temperature": completion_config.temperature,
             "samplers": samplers,
             "seed": 1234,
-            "repeat_last_n": 0,
-            "min_p": 0.0,
-            "top_p": 1.0,
-            "top_k": 100,
-            "repeat_penalty": completion_config.repeat_penalty,
+            "temperature": decoder.temperature,
+            "repeat_penalty": decoder.repeat_penalty,
+            "repeat_last_n": decoder.repeat_last_n,
+            "min_p": decoder.min_p,
+            "top_p": decoder.top_p,
+            "top_k": decoder.top_k,
             "mirostat_eta": 0.0,
             "mirostat_tau": 0.0,
             "cache_prompt": True
@@ -656,7 +655,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     def __convert_completion_response(prompt: str, completion_response: Dict) -> CompletionResult:
         def get_logprob(prob: float) -> float:
             return prob
-            return math.log(prob) if prob != 0 else -100.0
+            # return math.log(prob) if prob != 0 else -100.0
 
         finish_reason = ""
         if completion_response["stopped_eos"]:
