@@ -41,7 +41,7 @@ class TestCase:
         self.dataset = dataset
         self.limit = min(limit, len(dataset.test_split)) if limit != -1 else len(dataset.test_split)
         self.n_random = n_random if limit == -1 else -1
-        self.random_seed = int() if n_random != -1 else -1
+        self.random_seed = 1337 if n_random != -1 else -1
         self.label_numbering = label_numbering
         self.label_permutation = label_permutation
         self.benchmark = benchmark

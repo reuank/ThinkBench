@@ -225,6 +225,16 @@ class CoTVariant1Benchmark(CoTStandardBenchmark):
         return prompt_parts
 
 
+class CoTVariant1TemperatureBenchmark(CoTVariant1Benchmark):
+    def get_reasoning_completion_step(self) -> PromptCompletionStep:
+        return PromptCompletionStep(
+            name="reasoning",
+            completion_config=CompletionConfig(max_tokens=2048, max_logprobs=1),
+            decoder=TemperatureDecoder(temperature=0.8),
+            prefix="Reasoning: "
+        )
+
+
 class CoTVariant2Benchmark(CoTVariant1Benchmark):
     def get_reasoning_completion_step(self) -> PromptCompletionStep:
         return PromptCompletionStep(
@@ -233,16 +243,6 @@ class CoTVariant2Benchmark(CoTVariant1Benchmark):
             decoder=GreedyDecoder(),
             prefix="<reasoning>\n",
             suffix="\n</reasoning>\n"
-        )
-
-
-class CoTVariant1TemperatureBenchmark(CoTVariant1Benchmark):
-    def get_reasoning_completion_step(self) -> PromptCompletionStep:
-        return PromptCompletionStep(
-            name="reasoning",
-            completion_config=CompletionConfig(max_tokens=2048, max_logprobs=1),
-            decoder=TemperatureDecoder(temperature=0.8),
-            prefix="Reasoning: "
         )
 
 
@@ -268,6 +268,7 @@ class NonCoTScoreIndividuallyBenchmark(ScoringBenchmarkType):
             )
 
         return prompt_chains
+
 
 benchmark_mapping: Dict[str, callable] = {
     "default": NonCoTStandardBenchmark,
