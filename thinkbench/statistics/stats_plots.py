@@ -183,9 +183,9 @@ def evaluate_runs_match(cot_result_file_data, non_cot_result_file_data):
             else:
                 matches_incorrect_ids.append(index)
 
-    def combine_absolute_and_relative(absolute: int, relative: float):
-        return f"{absolute} ({relative:.2%})"
-        # return [absolute, relative]
+    def absolute_and_relative(numerator: int, denominator: int):
+        return f"{numerator} ({numerator/denominator:.2%})"
+        # return [numerator, denominator]
 
     runs_match_result = {
         # "model": cot_result_file_data["model"],
@@ -194,13 +194,13 @@ def evaluate_runs_match(cot_result_file_data, non_cot_result_file_data):
         "cot_uuid": cot_result_file_data["uuid"],
         "non_cot_accuracy": non_cot_result_file_data["metrics"]["accuracy"],
         "cot_accuracy": cot_result_file_data["metrics"]["accuracy"],
-        "matches": combine_absolute_and_relative(len(matches_ids), len(matches_ids)/len(cot_model_choices)),
-        "matches_correct": combine_absolute_and_relative(len(matches_correct_ids), len(matches_correct_ids)/len(matches_ids)),
-        "matches_incorrect": combine_absolute_and_relative(len(matches_incorrect_ids), len(matches_incorrect_ids)/len(matches_ids)),
-        "mismatches": combine_absolute_and_relative(len(mismatch_ids), len(mismatch_ids)/len(cot_model_choices)),
-        "mismatches_cot_superior": combine_absolute_and_relative(len(mismatch_cot_superior_ids), len(mismatch_cot_superior_ids)/len(mismatch_ids)),
-        "mismatches_non_cot_superior": combine_absolute_and_relative(len(mismatch_non_cot_superior_ids), len(mismatch_non_cot_superior_ids)/len(mismatch_ids)),
-        "mismatches_none_superior": combine_absolute_and_relative(len(mismatch_none_superior_ids), len(mismatch_none_superior_ids)/len(mismatch_ids))
+        "matches": absolute_and_relative(len(matches_ids), len(cot_model_choices)),
+        "matches_correct": absolute_and_relative(len(matches_correct_ids), len(matches_ids)),
+        "matches_incorrect": absolute_and_relative(len(matches_incorrect_ids), len(matches_ids)),
+        "mismatches": absolute_and_relative(len(mismatch_ids), len(cot_model_choices)),
+        "mismatches_cot_superior": absolute_and_relative(len(mismatch_cot_superior_ids), len(mismatch_ids)),
+        "mismatches_non_cot_superior": absolute_and_relative(len(mismatch_non_cot_superior_ids), len(mismatch_ids)),
+        "mismatches_none_superior": absolute_and_relative(len(mismatch_none_superior_ids), len(mismatch_ids))
     }
 
     if print_stats:
