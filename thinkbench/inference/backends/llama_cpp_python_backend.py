@@ -18,7 +18,7 @@ from model_config.model_config import ModelConfig, QuantizationMethod
 from utils.timer import Timer
 
 
-@INFERENCE_BACKEND_REGISTRY.register("llama-cpp-python")
+@INFERENCE_BACKEND_REGISTRY.register("llama-cpp-python", is_default=True)
 class LlamaCppPythonInferenceBackend(InferenceBackend):
     loaded_model: Llama = None
     n_ctx: int = 8192

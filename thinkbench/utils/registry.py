@@ -60,29 +60,23 @@ class Registry:
 
     def get(self, name: str) -> RegistryItem:
         self._load_all()
-
         """Gibt das registrierte Element unter dem gegebenen Namen zurück."""
         if name not in self.registry:
             raise KeyError(f"{name} ist nicht in der {self.registry_name} Registry registriert")
-
         return self.registry[name]
 
     def get_default(self) -> RegistryItem:
         self._load_all()
-
         if not self.default_class:
             raise ValueError(f"No default class set for the {self.registry_name} registry")
-
         return self.default_class
 
     def __contains__(self, name: str) -> bool:
         self._load_all()
-
         return name in self.registry
 
     def __iter__(self):
         self._load_all()
-
         return iter(self.registry)
 
     def items(self):
@@ -90,14 +84,36 @@ class Registry:
 
         return self.registry.items()
 
-    def keys(self):
+    def keys(self) -> List[str]:
         self._load_all()
+        return list(self.registry.keys())
 
-        return self.registry.keys()
-
-    def get_all_with_flag(self, flag: str):
+    def values(self) -> List[RegistryItem]:
         self._load_all()
+        return list(self.registry.values())
 
+    def get_all_with_flag(self, flag: str) -> List[RegistryItem]:
+        self._load_all()
         keys_with_flag = [k for k, v in self.flags.items() if v[flag] is True]
-
         return [self.registry[key] for key in keys_with_flag]
+
+    def get_single(self, name: str) -> RegistryItem:
+        self._load_all()
+        if name == "default":
+            return self.get_default()
+        else:
+            return self.get(name)
+
+    def get_list(self, group: str | List[str]) -> List[RegistryItem]:
+        self._load_all()
+        if group == "all":
+            return self.values()
+        elif "all-" in group:  # e.g. all-required
+            flag = group.split("-")[1]
+            return self.get_all_with_flag(flag)
+        elif group == "default" or isinstance(group, str):
+            return [self.get_single(group)]
+        elif isinstance(group, List):
+            return [self.get_single(name) for name in group]
+        else:
+            raise ValueError("Function get_multiple is not defined for this type.")
