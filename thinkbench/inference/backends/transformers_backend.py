@@ -10,6 +10,7 @@ from inference.completion import CompletionConfig, CompletionResult
 from inference.decoder import Decoder
 from inference.inference_backend import InferenceBackend, INFERENCE_BACKEND_REGISTRY
 from benchmark.testcase import TestCase
+from model_config.hf_model_config import HFModelConfig
 from model_config.model_config import QuantizationMethod, ModelConfig
 from utils.timer import Timer
 
@@ -19,7 +20,8 @@ class TransformersInferenceBackend(InferenceBackend):
     loaded_model: None
 
     def __init__(self):
-        # TODO: implement ensure_exists() function or python config file
+        raise NotImplementedError
+
         try:
             model_folder_path_str = os.environ.get("TB_MODEL_PATH")
             if not model_folder_path_str:
@@ -36,8 +38,6 @@ class TransformersInferenceBackend(InferenceBackend):
         return [QuantizationMethod.AWQ, QuantizationMethod.GPTQ]
 
     def load_model_from_config(self, model_config: ModelConfig):
-        raise NotImplementedError
-
         from transformers import AutoModelForCausalLM
         if self.loaded_model:
             del self.loaded_model

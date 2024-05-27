@@ -1,11 +1,11 @@
 import datetime
-from typing import List, Dict
+from typing import List, Dict, Union, Any
 
 import fire
 
 from benchmark.testcase import TestCase
 from benchmark.results import TestCaseResult
-from constants import TIMER_VERBOSE, STORAGE_BACKEND, INFERENCE_BACKEND_VERBOSE, PRINT_SEPARATOR, PRINT_SEPARATOR_LENGTH
+from constants import TIMER_VERBOSE, STORAGE_BACKEND, PRINT_SEPARATOR, PRINT_SEPARATOR_LENGTH
 from dataset.dataset import Dataset
 from dataset.single_data_instance import Numbering, Permutation
 from inference.backends.llama_cpp_server_backend import LlamaCppServerInferenceBackend
@@ -24,6 +24,7 @@ class ThinkBenchArguments:
         datasets: str = "default",
         inference_backend: str = "default",
         benchmarks: str = "default",
+        storage: str = "default",
         limit: int = -1,
         random: int = -1,
         labels: str = "unchanged",
@@ -35,6 +36,7 @@ class ThinkBenchArguments:
         self.datasets = DATASET_REGISTRY.get_list(ensure_list(datasets))
         self.inference_backend = INFERENCE_BACKEND_REGISTRY.get_single(inference_backend)
         self.benchmarks = BENCHMARK_REGISTRY.get_list(benchmarks)
+        self.storage_backend = STORAGE_BACKEND_REGISTRY.get_single(storage)
         self.label_numbering = Numbering(labels)
         self.label_permutation = Permutation(permutation)
 
@@ -47,32 +49,34 @@ class ThinkBenchArguments:
 class ThinkBench:
     @staticmethod
     def run_benchmarks(arguments: ThinkBenchArguments) -> None:
-        inference_backend = None
-        metrics_list = []
+        inference_backend: Union[InferenceBackend, None] = None
+        metrics_list: List[List] = []
 
         try:
-            Timer.set_verbosity(TIMER_VERBOSE)
             Timer.get_instance("Run all").start_over()
 
-            inference_backend, storage_backend, cached_datasets = ThinkBench.setup_environment(arguments)
-            metrics_list = ThinkBench.execute_benchmarks(arguments, inference_backend, storage_backend, cached_datasets)
+            inference_backend: InferenceBackend = arguments.inference_backend()
+            storage_backend: StorageBackend = arguments.storage_backend()
+
+            metrics_list = ThinkBench.execute_benchmarks(arguments, inference_backend, storage_backend)
         except Exception as e:
             print(f"An error occurred during the benchmarking process: {e}")
         finally:
             Timer.get_instance("Run all").end(print_timer=True)
             if metrics_list:
                 ThinkBench.print_summary(metrics_list)
-            if isinstance(inference_backend, LlamaCppServerInferenceBackend):
+            if inference_backend and isinstance(inference_backend, LlamaCppServerInferenceBackend):
                 inference_backend.terminate_all_running_servers()
 
     @staticmethod
     def execute_benchmarks(
             arguments: ThinkBenchArguments,
             inference_backend: InferenceBackend,
-            storage_backend: StorageBackend,
-            cached_datasets: Dict[str, Dataset]
+            storage_backend: StorageBackend
     ) -> List[List]:
         metrics_list: List[List] = []
+
+        cached_datasets: Dict[str, Dataset] = {}
 
         for model_config in arguments.model_configs:
             ThinkBench.print_model_header(model_config)
@@ -111,15 +115,6 @@ class ThinkBench:
                     storage_backend.store(test_case_result)
 
         return metrics_list
-
-    @staticmethod
-    def setup_environment(arguments: ThinkBenchArguments) -> (InferenceBackend, StorageBackend, Dict[str, Dataset]):
-        inference_backend: InferenceBackend = arguments.inference_backend()
-        inference_backend.set_verbosity(INFERENCE_BACKEND_VERBOSE)
-        storage_backend = STORAGE_BACKEND_REGISTRY.get(STORAGE_BACKEND)()
-        cached_datasets: Dict[str, Dataset] = {}
-
-        return inference_backend, storage_backend, cached_datasets
 
     @staticmethod
     def print_model_header(model_config: ModelConfig):

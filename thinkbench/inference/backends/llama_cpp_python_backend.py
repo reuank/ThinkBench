@@ -7,7 +7,7 @@ from llama_cpp.llama_tokenizer import LlamaHFTokenizer
 from tqdm import tqdm
 
 from benchmark.benchmark import SingleBenchmarkResult
-from constants import N_GPU_LAYERS
+from constants import N_GPU_LAYERS, INFERENCE_BACKEND_VERBOSE
 from dataset.single_data_instance import SingleDataInstance
 from inference.completion import CompletionHistory, CompletionConfig, CompletionResult, Choice, Logprobs, Usage
 from inference.decoder import Decoder, GreedyConstrainedDecoder, GreedyDecoder, BeamSearch
@@ -76,7 +76,7 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
             n_batch=self.n_batch,
             logits_all=self.logits_all,
             tokenizer=tokenizer,
-            verbose=self.verbose
+            verbose=INFERENCE_BACKEND_VERBOSE
         )
         Timer.get_instance(f"Load {hf_filename}").end()
 

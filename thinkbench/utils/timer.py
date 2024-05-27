@@ -3,17 +3,14 @@ import time
 from datetime import datetime
 from typing import Dict
 
+from constants import TIMER_VERBOSE
+
 
 class Timer:
-    verbose: bool = False
     _instances: Dict[str, "_Timer"] = {}
 
-    @classmethod
-    def set_verbosity(cls, verbose: bool):
-        cls.verbose = verbose
-
     class _Timer:
-        def __init__(self, name: str, verbose: bool):
+        def __init__(self, name: str, verbose: bool = TIMER_VERBOSE):
             self.time_format: str = "%d.%m.%Y %H:%M:%S"
             self.print_prefix: str = "###"
             self.verbose: bool = verbose
@@ -53,7 +50,7 @@ class Timer:
     @classmethod
     def get_instance(cls, name) -> _Timer:
         if name not in cls._instances:
-            cls._instances[name] = cls._Timer(name, cls.verbose)
+            cls._instances[name] = cls._Timer(name)
         return cls._instances[name]
 
     @classmethod

@@ -8,7 +8,7 @@ from benchmark.results import TestCaseResult
 from utils.encoders import TotalResultEncoder
 
 
-@STORAGE_BACKEND_REGISTRY.register(name="json_file_storage")
+@STORAGE_BACKEND_REGISTRY.register(name="json_file_storage", is_default=True)
 class JsonFileStorage(StorageBackend):
     def __init__(self):
         try:

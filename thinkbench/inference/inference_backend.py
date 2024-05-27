@@ -23,8 +23,6 @@ from utils.timer import Timer
 class InferenceBackend(ABC):
     current_model_config: ModelConfig
     loaded_model: None
-    verbose: bool = False
-    server_debug = False
 
     @property
     def name(self):
@@ -171,9 +169,6 @@ class InferenceBackend(ABC):
                 raise ValueError(f"Prompt step type {prompt_step_type} not implemented.")
 
         return completion_history
-
-    def set_verbosity(self, verbose: bool):
-        self.verbose = verbose
 
     @abstractmethod
     def get_backend_properties(self):
