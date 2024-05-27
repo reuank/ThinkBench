@@ -1,17 +1,8 @@
 import json
 from typing import List, Dict
 
-from numpy import float32
-
-from decoder import Decoder, GreedyConstrainedDecoder
-
-
-class NumpyEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, float32):
-            return float(obj)
-        else:
-            return obj.__dict__
+from inference.decoder import Decoder, GreedyConstrainedDecoder
+from utils.encoders import NumpyEncoder
 
 
 class CompletionConfig:

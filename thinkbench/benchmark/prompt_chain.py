@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from jinja2 import Template, Environment
 
-from completion import CompletionConfig
-from decoder import Decoder
+from inference.completion import CompletionConfig
+from inference.decoder import Decoder
 
 
 class PromptStep(ABC):

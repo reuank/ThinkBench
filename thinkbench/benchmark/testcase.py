@@ -1,30 +1,9 @@
 import random
-from typing import List, TypedDict, Optional, Dict
 
-from benchmark import Benchmark, SingleBenchmarkResult, Metrics
-from dataset import Dataset, Numbering, SingleDataInstance, Permutation
-
-
-class TestCaseResult(TypedDict):
-    uuid: str
-    model: str
-    dataset_name: str
-    benchmark_name: str
-    label_numbering: str
-    label_permutation: str
-    n_random: int
-    random_seed: int
-    hostname: str
-    inference_backend: str
-    inference_backend_properties: Optional[Dict]
-    metrics: Metrics
-    start_time: float
-    end_time: float
-    execution_seconds: float
-    current_commit_hash: str
-    comment: str
-    use_chat_template: bool
-    results: List[SingleBenchmarkResult]
+from benchmark.benchmark import Benchmark, BENCHMARK_REGISTRY
+from constants import RANDOM_DATA_SAMPLES_SEED
+from dataset.dataset import Dataset
+from dataset.single_data_instance import Numbering, Permutation
 
 
 class TestCase:
@@ -37,11 +16,20 @@ class TestCase:
     label_permutation: Permutation
     use_chat_template: bool
 
-    def __init__(self, dataset: Dataset, limit: int, n_random: int, label_numbering: Numbering = Numbering.get_default(), label_permutation: Permutation = Permutation.get_default(), benchmark: Benchmark = Benchmark.get_default(), use_chat_template: bool = True):
+    def __init__(
+            self,
+            dataset: Dataset,
+            limit: int,
+            n_random: int,
+            label_numbering: Numbering = Numbering.get_default(),
+            label_permutation: Permutation = Permutation.get_default(),
+            benchmark: Benchmark = None,
+            use_chat_template: bool = True
+    ):
         self.dataset = dataset
         self.limit = min(limit, len(dataset.test_split)) if limit != -1 else len(dataset.test_split)
         self.n_random = n_random if limit == -1 else -1
-        self.random_seed = 1337 if n_random != -1 else -1
+        self.random_seed = RANDOM_DATA_SAMPLES_SEED if n_random != -1 else -1
         self.label_numbering = label_numbering
         self.label_permutation = label_permutation
         self.benchmark = benchmark

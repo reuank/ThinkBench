@@ -8,7 +8,7 @@ import requests
 import aiohttp
 import time
 
-from completion import Choice, Logprobs, Usage, CompletionResult
+from inference.completion import Choice, Logprobs, Usage, CompletionResult
 from storage import TotalResultEncoder
 
 with open('../../docs/2024-04-25_llama-2-13b-chat_reasoning-prompts.json', 'r') as f:

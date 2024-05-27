@@ -29,7 +29,7 @@ def kill_all_old_servers():
             pass  # Process has been killed or can't be accessed
 
 
-def create_completion(prompt: str, slot_id):
+def create_completion(prompt: str, slot_id: int):
     request = {
         "prompt": prompt,
         "id_slot": slot_id,  # ensure that a thread only uses its own server slot
@@ -131,6 +131,8 @@ if __name__ == '__main__':
     time.sleep(2)
 
     results = run_all(prompts=prompts*16)
-    unique_results = list(set(results))
+    unique_results = len(list(set(results)))
 
     print(json.dumps(unique_results, indent=2))
+
+    process.terminate()

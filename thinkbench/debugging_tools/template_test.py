@@ -7,7 +7,7 @@ from thinkbench.benchmark import NonCoTStandardBenchmark, CoTStandardBenchmark, 
 from thinkbench.dataset import SingleDataInstance
 from thinkbench.inference import MessageHistory
 from thinkbench.model import ModelConfig, HFModelConfig
-from thinkbench.prompt import PromptTemplateStep, PromptCompletionStep, PromptTextStep
+from benchmark.prompt_chain import PromptTemplateStep, PromptCompletionStep, PromptTextStep
 
 
 def load_template(template_name: str) -> Template:

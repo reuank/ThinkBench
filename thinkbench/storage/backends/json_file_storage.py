@@ -1,30 +1,14 @@
+import datetime
 import json
 import os
-from abc import ABC, abstractmethod
-import datetime
 from pathlib import Path
 
-from numpy import float32
-
-from testcase import TestCaseResult
-
-
-class TotalResultEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, float32):
-            return float(obj)
-        if hasattr(obj, "to_dict"):
-            return obj.to_dict()
-        else:
-            return obj.__dict__
+from storage.storage_backend import StorageBackend, STORAGE_BACKEND_REGISTRY
+from benchmark.results import TestCaseResult
+from utils.encoders import TotalResultEncoder
 
 
-class StorageBackend(ABC):
-    @abstractmethod
-    def store(self, test_case_result: TestCaseResult):
-        raise NotImplementedError
-
-
+@STORAGE_BACKEND_REGISTRY.register(name="json_file_storage")
 class JsonFileStorage(StorageBackend):
     def __init__(self):
         try:

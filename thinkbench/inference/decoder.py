@@ -1,16 +1,18 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import List
 
 import json
 
+from constants import *
+
 
 class Decoder(ABC):
-    temperature: float = 0.0
-    repeat_penalty: float = 1.0
-    repeat_last_n: int = 64
-    min_p: float = 0.0
-    top_p: float = 1.0
-    top_k: int = 100
+    temperature: float = DEFAULT_DECODER_TEMPERATURE
+    repeat_penalty: float = DEFAULT_DECODER_REPEAT_PENALTY
+    repeat_last_n: int = DEFAULT_DECODER_REPEAT_LAST_N
+    min_p: float = DEFAULT_DECODER_MIN_P
+    top_p: float = DEFAULT_DECODER_TOP_P
+    top_k: int = DEFAULT_DECODER_TOP_K
 
     def to_dict(self):
         return {'decoder': self.__class__.__name__, 'attributes': self.__dict__}
