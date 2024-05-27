@@ -1,6 +1,6 @@
 import random
 
-from benchmark.benchmark import Benchmark, BENCHMARK_REGISTRY
+from benchmark.benchmark import Benchmark
 from constants import RANDOM_DATA_SAMPLES_SEED
 from dataset.dataset import Dataset
 from dataset.single_data_instance import Numbering, Permutation
