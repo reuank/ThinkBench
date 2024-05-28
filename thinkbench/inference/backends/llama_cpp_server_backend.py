@@ -2,6 +2,7 @@ import os
 import signal
 import sys
 import threading
+import socket
 import time
 from pathlib import Path
 from queue import Queue
@@ -14,7 +15,7 @@ from requests import Session
 from tqdm import tqdm
 
 from benchmark.benchmark import SingleBenchmarkResult
-from constants import COMPLETION_SEED, N_GPU_LAYERS, INFERENCE_BACKEND_VERBOSE, TOKENIZE_BEFORE
+from constants import COMPLETION_SEED, N_GPU_LAYERS, INFERENCE_BACKEND_VERBOSE, TOKENIZE_BEFORE, SERVER_HOST
 from dataset.single_data_instance import SingleDataInstance
 from inference.completion import CompletionConfig, CompletionResult, Choice, Logprobs, Usage
 from inference.decoder import Decoder, GreedyConstrainedDecoder, TemperatureDecoder, GreedyDecoder
@@ -32,9 +33,9 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     n_parallel: int = 1
 
     process: psutil.Popen = None
-    completion_url_template: Template = Template("http://localhost:${port}/completion")
-    tokenization_url_template: Template = Template("http://localhost:${port}/tokenize")
-    properties_url_template: Template = Template("http://localhost:${port}/props")
+    completion_url_template: Template = Template("http://${host}:${port}/completion")
+    tokenization_url_template: Template = Template("http://${host}:${port}/tokenize")
+    properties_url_template: Template = Template("http://${host}:${port}/props")
     headers = {'content-type': 'application/json'}
 
     def __init__(self):
@@ -104,6 +105,16 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
 
         # spawn a new server
         Timer.get_instance(f"Load {hf_filename}").start_over(print_out=True)
+
+        def is_port_open(port):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(1)
+                result = s.connect_ex((SERVER_HOST, port))
+                return result == 0
+
+        if is_port_open(self.port):
+            raise ValueError(f"Server could not be started, port {self.port} is already in use.")
+
         server_process_arguments = [
             str(self.server_binary_path),
             "--port", str(self.port),
@@ -207,7 +218,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         )
 
         raw_completion_response = self.session.post(
-            url=self.completion_url_template.substitute(port=self.port),
+            url=self.completion_url_template.substitute(port=self.port, host=SERVER_HOST),
             headers=self.headers,
             json=request
         ).json()
@@ -239,7 +250,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
 
     def tokenize(self, prompt: str) -> List[int]:
         return self.session.post(
-            url=self.tokenization_url_template.substitute(port=self.port),
+            url=self.tokenization_url_template.substitute(port=self.port, host=SERVER_HOST),
             headers=self.headers,
             json={
                 "content": prompt,
@@ -368,7 +379,10 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
         # return f"root   ::= [ ]? option \noption ::= ({'|'.join(labels_with_quotes)})"
 
     def get_backend_properties(self) -> Dict[str, str]:
-        server_settings = self.session.get(url=self.properties_url_template.substitute(port=self.port), headers=self.headers).json()
+        server_settings = self.session.get(
+            url=self.properties_url_template.substitute(port=self.port, host=SERVER_HOST),
+            headers=self.headers
+        ).json()
 
         return {
             "loaded_model": server_settings["default_generation_settings"]["model"],

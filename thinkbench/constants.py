@@ -2,6 +2,9 @@ from pathlib import Path
 
 LIBRARY_ROOT: Path = Path(__file__).parent
 
+# Server options
+SERVER_HOST = "localhost"
+
 # Logging options
 TIMER_VERBOSE = False
 INFERENCE_BACKEND_VERBOSE = False

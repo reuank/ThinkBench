@@ -2,7 +2,7 @@ import sys
 import time
 from typing import Any, Dict
 
-from constants import N_GPU_LAYERS, COMPLETION_SEED
+from constants import N_GPU_LAYERS, COMPLETION_SEED, SERVER_HOST
 from inference.backends.llama_cpp_server_backend import LlamaCppServerInferenceBackend
 from inference.completion import CompletionConfig, CompletionResult
 from inference.decoder import GreedyConstrainedDecoder, Decoder
@@ -98,7 +98,7 @@ class LlamaCppMultiGPUServerInferenceBackend(LlamaCppServerInferenceBackend):
         }
 
         raw_completion_response = self.session.post(
-            url=self.completion_url_template.substitute(port=self.port + additional_params["id_slot"]),
+            url=self.completion_url_template.substitute(port=self.port + additional_params["id_slot"], host=SERVER_HOST),
             headers=self.headers,
             json=request).json()
         completion_response = self.__convert_completion_response(prompt, raw_completion_response)
