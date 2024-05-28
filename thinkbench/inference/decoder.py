@@ -7,7 +7,7 @@ from constants import *
 
 
 class Decoder(ABC):
-    temperature: float = DEFAULT_DECODER_TEMPERATURE
+    temperature: float = GREEDY_DECODER_TEMPERATURE
     repeat_penalty: float = DEFAULT_DECODER_REPEAT_PENALTY
     repeat_last_n: int = DEFAULT_DECODER_REPEAT_LAST_N
     min_p: float = DEFAULT_DECODER_MIN_P
@@ -26,8 +26,6 @@ class GreedyDecoder(Decoder):
 
 
 class GreedyConstrainedDecoder(GreedyDecoder):
-    allowed_string: List[str]
-
     def __init__(self, allowed_strings: List[str]):
         self.allowed_strings = allowed_strings
 

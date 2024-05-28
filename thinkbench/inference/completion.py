@@ -8,11 +8,13 @@ from utils.encoders import NumpyEncoder
 class CompletionConfig:
     max_tokens: int
     max_logprobs: int
+    cache_prompt: bool
     echo: bool
 
-    def __init__(self, max_tokens: int = 1, max_logprobs: int = 10, echo: bool = False):
+    def __init__(self, max_tokens: int = 1, max_logprobs: int = 10, cache_prompt: bool = True, echo: bool = False):
         self.max_tokens = max_tokens
         self.max_logprobs = max_logprobs
+        self.cache_prompt = cache_prompt
         self.echo = echo
 
     def __repr__(self):
