@@ -62,6 +62,14 @@ class Beam:
     def get_completion(self):
         return "".join(self.generated_tokens)
 
+    # https://github.com/vllm-project/vllm/blob/290f4ada2bf42174a53ae6aab2873e115c8ae11b/vllm/sequence.py#L335
+    def get_beam_search_score(
+        self,
+        length_penalty: float = 1.0
+    ) -> float:
+        # return self.log_prob_sum
+        return self.log_prob_sum / (len(self.generated_tokens) ** length_penalty)
+
     def __repr__(self):
         return json.dumps(self, default=lambda o: o.__dict__, indent=2)
 

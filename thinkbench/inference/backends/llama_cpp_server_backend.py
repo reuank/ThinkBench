@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from queue import Queue
 from string import Template
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 import git
 import psutil
@@ -295,21 +295,17 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
 
         completion_count = 0
 
-        for _ in range(completion_config.max_tokens):
-            all_candidates = []
-            for beam in beams:
-                if beam.generated_tokens and beam.generated_tokens[-1] == eos_token:
-                    # print("eos generated")
-                    # print("".join(beam.generated_tokens))
-                    # print("="*40)
-                    completed_beams.append(beam)
-                    continue
+        log_beam_search = False
 
+        for token_id in range(completion_config.max_tokens):
+            if log_beam_search: print(f"Token ID: {token_id}")
+            all_candidates = []
+            for beam_id, beam in enumerate(beams):
                 completion_response: CompletionResult = self.create_completion(
                     prompt=beam.get_current_prompt(),
                     completion_config=CompletionConfig(
                         max_tokens=1,
-                        max_logprobs=10,
+                        max_logprobs=decoder.beam_width,
                         cache_prompt=False
                     ),
                     decoder=GreedyDecoder(),
@@ -319,9 +315,10 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
                 completion_count += 1
 
                 top_tokens: Dict[str, float] = completion_response.get_last_token_logprobs()
-
-                # print(json.dumps(completion_response, indent=2, cls=TotalResultEncoder))
-                # quit()
+                if log_beam_search:
+                    print(f"Beam {beam_id} generated tokens: {beam.generated_tokens}")
+                    print(f"Beam {beam_id} top tokens: {top_tokens}")
+                    print(f"Beam {beam_id} logprob sum: {beam.log_prob_sum}")
 
                 def get_logprob(prob: float) -> float:
                     return math.log(prob) if prob != 0 else -100.0
@@ -335,16 +332,42 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
                     )
                     all_candidates.append(new_beam)
 
-            beams = sorted(all_candidates, key=lambda x: x.log_prob_sum, reverse=True)[:decoder.beam_width]
-            print([beam.get_completion() for beam in beams])
+                if log_beam_search:
+                    print(f"Beam {beam_id} all candidates: {[''.join(candidate.generated_tokens) for candidate in all_candidates]}")
+
+                if log_beam_search and beam_id != len(beams) - 1:
+                    print("")
+
+            beams = sorted(all_candidates, key=lambda x: x.get_beam_search_score(), reverse=True)
+
+            for beam_id in range(decoder.beam_width):
+                beam = beams[beam_id]
+                if beam.generated_tokens and beam.generated_tokens[-1] == eos_token:
+                    completed_beams.append(beam)
+                    if log_beam_search:
+                        print(f"Beam {beam_id} finished with completion '{beam.get_completion()}'")
+                    beams.pop(beam_id)
+
+            if log_beam_search:
+                print("="*40)
+
+            beams = beams[:decoder.beam_width]
 
             if all((beam.generated_tokens and beam.generated_tokens[-1] == eos_token) for beam in beams):
+                completed_beams.extend([beam for beam in beams if beam.generated_tokens[-1] == eos_token])
+                beams = [beam for beam in beams if beam.generated_tokens[-1] != eos_token]
+                if log_beam_search:
+                    print("All beams finished!")
                 break
 
         if completed_beams:
-            best_beam = max(completed_beams, key=lambda x: x.log_prob_sum)
+            print(f"Completed beams: \n {json.dumps([''.join(completed_beam.generated_tokens) + f'({completed_beam.get_beam_search_score()})' for completed_beam in completed_beams], indent=2)}")
+            best_beam = max(completed_beams, key=lambda x: x.get_beam_search_score())
         else:
-            best_beam = max(beams, key=lambda x: x.log_prob_sum)
+            best_beam = max(beams, key=lambda x: x.get_beam_search_score())
+
+        if log_beam_search:
+            print(f"Number of completions: {completion_count}")
 
         return CompletionResult(
             id="beam",

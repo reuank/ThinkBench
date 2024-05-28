@@ -99,7 +99,7 @@ class GreedyTestBenchmark(LabelGenerationBenchmarkType):
 class BeamSearchTestBenchmark(LabelGenerationBenchmarkType):
     def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
         prompt_chains = [
-            PromptChain().add_template("What is the capital of France?")
+            PromptChain().add_template("What is the capital of France?\n\n")
                          .add_completion_step(self.get_completion_step())
         ]
 
@@ -109,8 +109,8 @@ class BeamSearchTestBenchmark(LabelGenerationBenchmarkType):
     def get_completion_step() -> PromptCompletionStep:
         return PromptCompletionStep(
             name="label",
-            completion_config=CompletionConfig(max_tokens=30, max_logprobs=100),
-            decoder=BeamSearchDecoder(beam_width=2)
+            completion_config=CompletionConfig(max_tokens=100, max_logprobs=100),
+            decoder=BeamSearchDecoder(beam_width=4)
         )
 
 
