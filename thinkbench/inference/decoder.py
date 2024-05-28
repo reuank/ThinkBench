@@ -46,8 +46,26 @@ class TopKSamplingDecoder(Decoder):
         self.top_k = top_k
 
 
-class BeamSearch(Decoder):
-    num_beams: int
+class Beam:
+    def __init__(self, prompt: str, generated_tokens: List[str], log_prob_sum: float, log_probs: List[float]):
+        self.prompt = prompt
+        self.generated_tokens = generated_tokens
+        self.log_prob_sum = log_prob_sum
+        self.log_probs = log_probs
 
-    def __init__(self, num_beams: int):
-        self.num_beams = num_beams
+    def __lt__(self, other: "Beam"):
+        return self.log_prob_sum < other.log_prob_sum
+
+    def get_current_prompt(self):
+        return self.prompt + self.get_completion()
+
+    def get_completion(self):
+        return "".join(self.generated_tokens)
+
+    def __repr__(self):
+        return json.dumps(self, default=lambda o: o.__dict__, indent=2)
+
+
+class BeamSearchDecoder(Decoder):
+    def __init__(self, beam_width: int):
+        self.beam_width = beam_width

@@ -1,14 +1,14 @@
 from abc import abstractmethod, ABC
 from typing import List
 
-from benchmark.benchmark import BENCHMARK_REGISTRY
+from benchmark.benchmark import BENCHMARK_REGISTRY, Benchmark
 from benchmark.benchmark_types import LabelGenerationBenchmarkType
 from benchmark.prompt_chain import PromptCompletionStep, PromptChain
 from constants import DEFAULT_OPTIONAL_CONTEXT_TEMPLATE, DEFAULT_ANSWER_OPTION_TEMPLATE, DEFAULT_QUESTION_TEMPLATE, \
     REASONING_MAX_TOKENS, REASONING_MAX_LOGPROBS
 from dataset.single_data_instance import SingleDataInstance
 from inference.completion import CompletionConfig
-from inference.decoder import GreedyDecoder, TemperatureDecoder
+from inference.decoder import GreedyDecoder, TemperatureDecoder, BeamSearchDecoder
 
 
 class CoTPromptParts:
@@ -74,6 +74,44 @@ class CoTVariant1TemperatureBenchmark(CoTVariant1Benchmark):
         reasoning_completion_step.decoder = TemperatureDecoder(temperature=0.8)
 
         return reasoning_completion_step
+
+
+@BENCHMARK_REGISTRY.register("greedy-test")
+class GreedyTestBenchmark(LabelGenerationBenchmarkType):
+    def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
+        prompt_chains = [
+            PromptChain().add_template("What is the capital of France?")
+                         .add_completion_step(self.get_completion_step())
+        ]
+
+        return prompt_chains
+
+    @staticmethod
+    def get_completion_step() -> PromptCompletionStep:
+        return PromptCompletionStep(
+            name="label",
+            completion_config=CompletionConfig(max_tokens=30, max_logprobs=100),
+            decoder=GreedyDecoder()
+        )
+
+
+@BENCHMARK_REGISTRY.register("beam-search-test")
+class BeamSearchTestBenchmark(LabelGenerationBenchmarkType):
+    def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
+        prompt_chains = [
+            PromptChain().add_template("What is the capital of France?")
+                         .add_completion_step(self.get_completion_step())
+        ]
+
+        return prompt_chains
+
+    @staticmethod
+    def get_completion_step() -> PromptCompletionStep:
+        return PromptCompletionStep(
+            name="label",
+            completion_config=CompletionConfig(max_tokens=30, max_logprobs=100),
+            decoder=BeamSearchDecoder(beam_width=2)
+        )
 
 
 @BENCHMARK_REGISTRY.register("cot-variant-1-xml")

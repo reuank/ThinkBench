@@ -108,6 +108,9 @@ class CompletionResult:
     def get_most_probable_token(self):
         return self.choices[0].logprobs.tokens[0]
 
+    def get_last_token_logprobs(self):
+        return self.choices[0].logprobs.top_logprobs[0]
+
 
 class FinishedCompletion:
     completion_result: CompletionResult

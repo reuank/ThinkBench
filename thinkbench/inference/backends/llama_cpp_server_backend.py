@@ -1,3 +1,5 @@
+import json
+import math
 import os
 import signal
 import sys
@@ -17,11 +19,13 @@ from benchmark.benchmark import SingleBenchmarkResult
 from constants import COMPLETION_SEED, N_GPU_LAYERS, INFERENCE_BACKEND_VERBOSE, TOKENIZE_BEFORE
 from dataset.single_data_instance import SingleDataInstance
 from inference.completion import CompletionConfig, CompletionResult, Choice, Logprobs, Usage
-from inference.decoder import Decoder, GreedyConstrainedDecoder, TemperatureDecoder
+from inference.decoder import Decoder, GreedyConstrainedDecoder, TemperatureDecoder, GreedyDecoder, BeamSearchDecoder, \
+    Beam
 from inference.inference_backend import InferenceBackend, INFERENCE_BACKEND_REGISTRY
 from benchmark.testcase import TestCase
 from model_config.hf_model_config import HFModelConfig
 from model_config.model_config import ModelConfig, QuantizationMethod
+from utils.encoders import TotalResultEncoder
 from utils.timer import Timer
 
 
@@ -194,6 +198,9 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             samplers = ["temperature"]
         elif type(decoder) == TemperatureDecoder:
             samplers = ["temperature"]
+        elif type(decoder) == BeamSearchDecoder:
+            decoder: BeamSearchDecoder
+            return self.beam_search(prompt, completion_config, decoder, additional_params)
 
         if TOKENIZE_BEFORE:
             prompt = self.tokenize(prompt)
@@ -246,6 +253,128 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
                 "add_special": False
             }
         ).json()["tokens"]
+
+    def generate_single_token(
+            self,
+            prompt: str,
+            additional_params: Dict[str, Any],
+            decoder: Decoder = GreedyDecoder()
+    ) -> CompletionResult:
+        if TOKENIZE_BEFORE:
+            prompt = self.tokenize(prompt)
+
+        if type(decoder) == GreedyDecoder:
+            decoder.temperature = -1.0
+
+        request = self.construct_request(
+            prompt=prompt,
+            completion_config=CompletionConfig(max_tokens=1, max_logprobs=100),
+            samplers=["temperature"],
+            decoder=decoder,
+            additional_params=additional_params
+        )
+
+        raw_completion_response = self.session.post(
+            url=self.completion_url_template.substitute(port=self.port),
+            headers=self.headers,
+            json=request
+        ).json()
+
+        return self.__convert_completion_response(prompt, raw_completion_response)
+
+    def beam_search(
+            self,
+            prompt: str,
+            completion_config: CompletionConfig,
+            decoder: BeamSearchDecoder,
+            additional_params: Dict[str, Any]
+    ) -> CompletionResult:
+        eos_token = "</s>"
+        beams = [Beam(prompt=prompt, generated_tokens=[], log_prob_sum=0.0, log_probs=[])]
+        completed_beams = []
+
+        completion_count = 0
+
+        for _ in range(completion_config.max_tokens):
+            all_candidates = []
+            for beam in beams:
+                if beam.generated_tokens and beam.generated_tokens[-1] == eos_token:
+                    # print("eos generated")
+                    # print("".join(beam.generated_tokens))
+                    # print("="*40)
+                    completed_beams.append(beam)
+                    continue
+
+                completion_response: CompletionResult = self.create_completion(
+                    prompt=beam.get_current_prompt(),
+                    completion_config=CompletionConfig(
+                        max_tokens=1,
+                        max_logprobs=10,
+                        cache_prompt=False
+                    ),
+                    decoder=GreedyDecoder(),
+                    additional_params=additional_params
+                )
+
+                completion_count += 1
+
+                top_tokens: Dict[str, float] = completion_response.get_last_token_logprobs()
+
+                # print(json.dumps(completion_response, indent=2, cls=TotalResultEncoder))
+                # quit()
+
+                def get_logprob(prob: float) -> float:
+                    return math.log(prob) if prob != 0 else -100.0
+
+                for token, prob in top_tokens.items():
+                    new_beam = Beam(
+                        prompt=prompt,
+                        generated_tokens=beam.generated_tokens + [token],
+                        log_prob_sum=beam.log_prob_sum + get_logprob(prob),
+                        log_probs=beam.log_probs + [prob]
+                    )
+                    all_candidates.append(new_beam)
+
+            beams = sorted(all_candidates, key=lambda x: x.log_prob_sum, reverse=True)[:decoder.beam_width]
+            print([beam.get_completion() for beam in beams])
+
+            if all((beam.generated_tokens and beam.generated_tokens[-1] == eos_token) for beam in beams):
+                break
+
+        if completed_beams:
+            best_beam = max(completed_beams, key=lambda x: x.log_prob_sum)
+        else:
+            best_beam = max(beams, key=lambda x: x.log_prob_sum)
+
+        return CompletionResult(
+            id="beam",
+            prompt=prompt,
+            object="",
+            created=int(time.time()),
+            model=self.current_model_config.model_name,
+            choices=[
+                Choice(
+                    text="".join(best_beam.generated_tokens),
+                    logprobs=Logprobs(
+                        tokens=best_beam.generated_tokens,
+                        text_offset=[],
+                        token_logprobs=[],
+                        top_logprobs=[{k: v for k, v in zip(best_beam.generated_tokens, best_beam.log_probs)}]
+                    ),
+                    finish_reason="stopped_eos" if best_beam.generated_tokens and best_beam.generated_tokens[-1] == eos_token else "stopped_limit",
+                    index=0
+                )
+            ],
+            usage=Usage(
+                prompt_tokens=len(prompt),
+                prompt_tokens_per_second=0.0,
+                prompt_ms=0.0,
+                completion_tokens=0,
+                completion_tokens_per_second=0.0,
+                completion_ms=0.0,
+                total_tokens=0
+            )
+        )
 
     @staticmethod
     def construct_request(

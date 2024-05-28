@@ -55,6 +55,10 @@ class InferenceBackend(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def generate_single_token(self, prompt: str, decoder: Decoder, additional_params: Dict[str, Any]) -> CompletionResult:
+        raise NotImplementedError
+
+    @abstractmethod
     def _run_test_case(self, test_case: TestCase, test_data_instances: List[SingleDataInstance]) -> List[SingleBenchmarkResult]:
         raise NotImplementedError
 
