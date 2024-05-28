@@ -364,6 +364,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             print(f"Completed beams: \n {json.dumps([''.join(completed_beam.generated_tokens) + f'({completed_beam.get_beam_search_score()})' for completed_beam in completed_beams], indent=2)}")
             best_beam = max(completed_beams, key=lambda x: x.get_beam_search_score())
         else:
+            print(f"All beams: \n {json.dumps([''.join(beam.generated_tokens) + f'({beam.get_beam_search_score()})' for beam in beams], indent=2)}")
             best_beam = max(beams, key=lambda x: x.get_beam_search_score())
 
         if log_beam_search:

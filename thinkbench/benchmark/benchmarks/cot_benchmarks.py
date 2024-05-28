@@ -76,6 +76,17 @@ class CoTVariant1TemperatureBenchmark(CoTVariant1Benchmark):
         return reasoning_completion_step
 
 
+@BENCHMARK_REGISTRY.register("cot-variant-1-beam-search")
+class CoTVariant1BeamSearchBenchmark(CoTVariant1Benchmark):
+    def get_reasoning_completion_step(self) -> PromptCompletionStep:
+        return PromptCompletionStep(
+            name="reasoning",
+            completion_config=CompletionConfig(max_tokens=100, max_logprobs=10),
+            decoder=BeamSearchDecoder(beam_width=4),
+            prefix="Reasoning: "
+        )
+
+
 @BENCHMARK_REGISTRY.register("greedy-test")
 class GreedyTestBenchmark(LabelGenerationBenchmarkType):
     def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
