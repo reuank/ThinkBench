@@ -4,10 +4,14 @@ from typing import List
 from benchmark.benchmark import BENCHMARK_REGISTRY
 from benchmark.benchmark_types import LabelGenerationBenchmarkType, ScoringBenchmarkType
 from benchmark.prompt_chain import PromptCompletionStep, PromptChain
+from constants import DEFAULT_OPTIONAL_CONTEXT_TEMPLATE, DEFAULT_QUESTION_TEMPLATE, DEFAULT_ANSWER_OPTION_TEMPLATE
 from dataset.single_data_instance import SingleDataInstance
 
 
 class NonCoTBenchmark(LabelGenerationBenchmarkType, ABC):
+    def __init__(self):
+        self.DEFAULT_OPTIONAL_CONTEXT_TEMPLATE = None
+
     @abstractmethod
     def get_label_prompt(self) -> str:
         raise NotImplementedError
@@ -17,9 +21,9 @@ class NonCoTBenchmark(LabelGenerationBenchmarkType, ABC):
 
     def prompt_chains(self, single_data_instance: SingleDataInstance) -> List[PromptChain]:
         prompt_chains = [
-            PromptChain().add_template(self.default_optional_context_template)
-                         .add_template(self.default_question_template)
-                         .add_template(self.default_answer_option_template)
+            PromptChain().add_template(DEFAULT_OPTIONAL_CONTEXT_TEMPLATE)
+                         .add_template(DEFAULT_QUESTION_TEMPLATE)
+                         .add_template(DEFAULT_ANSWER_OPTION_TEMPLATE)
                          .add_template(self.get_label_prompt())
                          .add_completion_step(self.get_label_completion_step(single_data_instance))
         ]
@@ -49,8 +53,8 @@ class NonCoTScoreIndividuallyBenchmark(ScoringBenchmarkType):
 
         for text in single_data_instance.answer_texts:
             prompt_chains.append(
-                PromptChain().add_template(self.default_optional_context_template)
-                             .add_template(self.default_question_template)
+                PromptChain().add_template(DEFAULT_OPTIONAL_CONTEXT_TEMPLATE)
+                             .add_template(DEFAULT_QUESTION_TEMPLATE)
                              .add_text(f"Answer: {text}")
                              .get_completion()
             )

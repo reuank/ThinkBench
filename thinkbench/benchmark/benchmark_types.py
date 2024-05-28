@@ -1,6 +1,7 @@
 from abc import ABC
 from typing import List, Dict
 
+from constants import LABEL_MAX_LOGPROBS
 from .benchmark import Benchmark
 from benchmark.benchmark import SingleBenchmarkResult
 from benchmark.prompt_chain import PromptCompletionStep
@@ -19,7 +20,7 @@ class LabelGenerationBenchmarkType(Benchmark, ABC):
     def default_label_completion_step(single_data_instance: SingleDataInstance) -> PromptCompletionStep:
         return PromptCompletionStep(
             name="label",
-            completion_config=CompletionConfig(max_logprobs=50),
+            completion_config=CompletionConfig(max_logprobs=LABEL_MAX_LOGPROBS),
             decoder=GreedyConstrainedDecoder(single_data_instance.answer_labels)
         )
 

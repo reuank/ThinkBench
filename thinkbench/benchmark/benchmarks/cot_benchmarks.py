@@ -4,6 +4,8 @@ from typing import List
 from benchmark.benchmark import BENCHMARK_REGISTRY
 from benchmark.benchmark_types import LabelGenerationBenchmarkType
 from benchmark.prompt_chain import PromptCompletionStep, PromptChain
+from constants import DEFAULT_OPTIONAL_CONTEXT_TEMPLATE, DEFAULT_ANSWER_OPTION_TEMPLATE, DEFAULT_QUESTION_TEMPLATE, \
+    REASONING_MAX_TOKENS, REASONING_MAX_LOGPROBS
 from dataset.single_data_instance import SingleDataInstance
 from inference.completion import CompletionConfig
 from inference.decoder import GreedyDecoder, TemperatureDecoder
@@ -23,7 +25,7 @@ class CoTBenchmark(LabelGenerationBenchmarkType, ABC):
     def get_reasoning_completion_step(self) -> PromptCompletionStep:
         return PromptCompletionStep(
             name="reasoning",
-            completion_config=CompletionConfig(max_tokens=2048, max_logprobs=1),
+            completion_config=CompletionConfig(max_tokens=REASONING_MAX_TOKENS, max_logprobs=REASONING_MAX_LOGPROBS),
             decoder=GreedyDecoder(),
             prefix="Reasoning: "
         )
@@ -32,9 +34,9 @@ class CoTBenchmark(LabelGenerationBenchmarkType, ABC):
         reasoning_prompt_parts = self.get_prompt_parts()
 
         prompt_chains = [
-            PromptChain().add_template(self.default_optional_context_template)
-                         .add_template(self.default_question_template)
-                         .add_template(self.default_answer_option_template)
+            PromptChain().add_template(DEFAULT_OPTIONAL_CONTEXT_TEMPLATE)
+                         .add_template(DEFAULT_QUESTION_TEMPLATE)
+                         .add_template(DEFAULT_ANSWER_OPTION_TEMPLATE)
                          .add_template(reasoning_prompt_parts.reasoning_prompt_template)
                          .add_completion_step(self.get_reasoning_completion_step())
                          .add_template(reasoning_prompt_parts.label_prompt_template)
@@ -58,7 +60,7 @@ class CoTStandardBenchmark(CoTBenchmark):
 @BENCHMARK_REGISTRY.register("cot-variant-1")
 class CoTVariant1Benchmark(CoTStandardBenchmark):
     def get_prompt_parts(self) -> CoTPromptParts:
-        prompt_parts = CoTStandardBenchmark.get_prompt_parts(self)
+        prompt_parts = super().get_prompt_parts()
         prompt_parts.label_prompt_template = "Given this reasoning, the correct answer among labels "\
                                              "{{ single_data_instance.answer_labels[0] }} through "\
                                              "{{ single_data_instance.answer_labels[-1] }} is: \n\n"
@@ -68,21 +70,17 @@ class CoTVariant1Benchmark(CoTStandardBenchmark):
 @BENCHMARK_REGISTRY.register("cot-variant-1-temperature")
 class CoTVariant1TemperatureBenchmark(CoTVariant1Benchmark):
     def get_reasoning_completion_step(self) -> PromptCompletionStep:
-        return PromptCompletionStep(
-            name="reasoning",
-            completion_config=CompletionConfig(max_tokens=2048, max_logprobs=1),
-            decoder=TemperatureDecoder(temperature=0.8),
-            prefix="Reasoning: "
-        )
+        reasoning_completion_step = super().get_reasoning_completion_step()
+        reasoning_completion_step.decoder = TemperatureDecoder(temperature=0.8)
+
+        return reasoning_completion_step
 
 
-@BENCHMARK_REGISTRY.register("cot-variant-2")
-class CoTVariant2Benchmark(CoTVariant1Benchmark):
+@BENCHMARK_REGISTRY.register("cot-variant-1-xml")
+class CoTVariant1XMLBenchmark(CoTVariant1Benchmark):
     def get_reasoning_completion_step(self) -> PromptCompletionStep:
-        return PromptCompletionStep(
-            name="reasoning",
-            completion_config=CompletionConfig(max_tokens=2048, max_logprobs=1),
-            decoder=GreedyDecoder(),
-            prefix="<reasoning>\n",
-            suffix="\n</reasoning>\n"
-        )
+        reasoning_completion_step = super().get_reasoning_completion_step()
+        reasoning_completion_step.prefix = "<reasoning>\n"
+        reasoning_completion_step.suffix = "\n</reasoning>\n"
+
+        return reasoning_completion_step

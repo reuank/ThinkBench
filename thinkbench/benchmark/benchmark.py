@@ -9,28 +9,6 @@ from utils.registry import Registry
 
 
 class Benchmark(ABC):
-    default_optional_context_template = (
-        "{% if single_data_instance.context %}"
-        "Passage:\n"
-        "{{ single_data_instance.context }}"
-        "\n\n"
-        "{% endif %}"
-    )
-
-    default_question_template = (
-        "Question:\n"
-        "{{ single_data_instance.question }}"
-        "\n\n"
-    )
-
-    default_answer_option_template = (
-        "Answer Choices:\n"
-        "{% for label in single_data_instance.answer_labels %}"
-        "({{ label }}) {{ single_data_instance.answer_texts[loop.index0] }}{{ '\n' if not loop.last }}"
-        "{% endfor %}"
-        "\n\n"
-    )
-
     @property
     def name(self):
         return self.__class__.__name__
