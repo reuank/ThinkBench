@@ -14,10 +14,10 @@ from requests import Session
 from tqdm import tqdm
 
 from benchmark.benchmark import SingleBenchmarkResult
-from constants import COMPLETION_SEED, N_GPU_LAYERS, INFERENCE_BACKEND_VERBOSE
+from constants import COMPLETION_SEED, N_GPU_LAYERS, INFERENCE_BACKEND_VERBOSE, TOKENIZE_BEFORE
 from dataset.single_data_instance import SingleDataInstance
 from inference.completion import CompletionConfig, CompletionResult, Choice, Logprobs, Usage
-from inference.decoder import Decoder, GreedyConstrainedDecoder, TemperatureDecoder
+from inference.decoder import Decoder, GreedyConstrainedDecoder, TemperatureDecoder, GreedyDecoder
 from inference.inference_backend import InferenceBackend, INFERENCE_BACKEND_REGISTRY
 from benchmark.testcase import TestCase
 from model_config.hf_model_config import HFModelConfig
@@ -30,8 +30,6 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     n_ctx: int = 8192
     n_batch: int = 4096
     n_parallel: int = 1
-    continuous_batching: bool = False
-    tokenize_before: bool = True
 
     process: psutil.Popen = None
     completion_url_template: Template = Template("http://localhost:${port}/completion")
@@ -116,8 +114,6 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             "-np", str(self.n_parallel),
             "--log-disable"
         ]
-        if self.continuous_batching:
-            server_process_arguments.append("-cb")
 
         if INFERENCE_BACKEND_VERBOSE:
             stdout = sys.stdout
@@ -193,46 +189,29 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
 
     def create_completion(self, prompt: str, completion_config: CompletionConfig, decoder: Decoder, additional_params: Dict[str, Any]) -> CompletionResult:
         samplers = []
-        if type(decoder) == GreedyConstrainedDecoder:
+        if type(decoder) == GreedyConstrainedDecoder or type(decoder) == GreedyDecoder:
             decoder.temperature = -1.0  # Return probs even when using greedy decoding
             samplers = ["temperature"]
         elif type(decoder) == TemperatureDecoder:
             samplers = ["temperature"]
 
-        if self.tokenize_before:
-            prompt = self.session.post(
-                url=self.tokenization_url_template.substitute(port=self.port),
-                headers=self.headers,
-                json={
-                    "content": prompt,
-                    "add_special": False
-                }
-            ).json()["tokens"]
+        if TOKENIZE_BEFORE:
+            prompt = self.tokenize(prompt)
 
-        request = {
-            "prompt": prompt,
-            "id_slot": additional_params["id_slot"],  # ensure that a thread only uses its own server slot
-            "n_predict": completion_config.max_tokens,
-            "n_probs": completion_config.max_logprobs,
-            "min_keep": completion_config.max_logprobs,
-            "samplers": samplers,
-            "seed": COMPLETION_SEED,
-            "temperature": decoder.temperature,
-            "repeat_penalty": decoder.repeat_penalty,
-            "repeat_last_n": decoder.repeat_last_n,
-            "min_p": decoder.min_p,
-            "top_p": decoder.top_p,
-            "top_k": decoder.top_k,
-            "mirostat_eta": 0.0,
-            "mirostat_tau": 0.0,
-            "cache_prompt": True
-            # "grammar": grammar_string
-        }
+        request = self.construct_request(
+            prompt=prompt,
+            completion_config=completion_config,
+            samplers=samplers,
+            decoder=decoder,
+            additional_params=additional_params
+        )
 
         raw_completion_response = self.session.post(
             url=self.completion_url_template.substitute(port=self.port),
             headers=self.headers,
-            json=request).json()
+            json=request
+        ).json()
+
         completion_response = self.__convert_completion_response(prompt, raw_completion_response)
 
         if type(decoder) == GreedyConstrainedDecoder:
@@ -257,6 +236,43 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             completion_response.choices[0].logprobs.top_logprobs[0] = sorted_tokens
 
         return completion_response
+
+    def tokenize(self, prompt: str) -> List[int]:
+        return self.session.post(
+            url=self.tokenization_url_template.substitute(port=self.port),
+            headers=self.headers,
+            json={
+                "content": prompt,
+                "add_special": False
+            }
+        ).json()["tokens"]
+
+    @staticmethod
+    def construct_request(
+            prompt: str,
+            completion_config: CompletionConfig,
+            samplers: List[str],
+            additional_params: Dict[str, Any],
+            decoder: Decoder = GreedyDecoder()
+    ) -> Dict[int, Any]:
+        return {
+            "prompt": prompt,
+            "id_slot": additional_params["id_slot"] if "id_slot" in additional_params.keys() else -1,
+            "n_predict": completion_config.max_tokens,
+            "n_probs": completion_config.max_logprobs,
+            "min_keep": completion_config.max_logprobs,
+            "cache_prompt": completion_config.cache_prompt,
+            "samplers": samplers,
+            "seed": COMPLETION_SEED,
+            "temperature": decoder.temperature,
+            "repeat_penalty": decoder.repeat_penalty,
+            "repeat_last_n": decoder.repeat_last_n,
+            "min_p": decoder.min_p,
+            "top_p": decoder.top_p,
+            "top_k": decoder.top_k,
+            "mirostat_eta": 0.0,
+            "mirostat_tau": 0.0,
+        }
 
     @staticmethod
     def __convert_completion_response(prompt: str, completion_response: Dict) -> CompletionResult:
@@ -360,7 +376,6 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             "n_ctx_per_slot": server_settings["default_generation_settings"]["n_ctx"],
             "batch_size": self.n_batch,
             "n_gpu_layers": N_GPU_LAYERS,
-            "continuous_batching": self.continuous_batching,
             "current_commit_hash": self.current_commit_hash
         }
 
