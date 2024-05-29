@@ -3,19 +3,18 @@ from pathlib import Path
 LIBRARY_ROOT: Path = Path(__file__).parent
 
 # Server options
-SERVER_HOST = "localhost"
+SERVER_HOST: str = "localhost"
 
 # Logging options
-TIMER_VERBOSE = False
-INFERENCE_BACKEND_VERBOSE = False
-PRINT_SEPARATOR_LENGTH = 45
-PRINT_SEPARATOR = "="
-
-# Storage options
-STORAGE_BACKEND = "json_file_storage"
+LOG_INFO: bool = True
+LOG_ERROR: bool = True
+TIMER_VERBOSE: bool = False
+INFERENCE_BACKEND_VERBOSE: bool = False
+PRINT_SEPARATOR_LENGTH: int = 45
+PRINT_SEPARATOR: str = "="
 
 # Dataset defaults
-RANDOM_DATA_SAMPLES_SEED = 1337
+RANDOM_DATA_SAMPLES_SEED: int = 1337
 
 # Model config defaults
 GGUF_FILE_EXTENSION: str = "Q4_K_M.gguf"

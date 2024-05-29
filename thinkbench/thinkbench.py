@@ -1,20 +1,17 @@
-import datetime
-from typing import List, Dict, Union, Any
+from typing import List, Dict, Union
 
 import fire
 
 from benchmark.testcase import TestCase
 from benchmark.results import TestCaseResult
-from constants import TIMER_VERBOSE, STORAGE_BACKEND, PRINT_SEPARATOR, PRINT_SEPARATOR_LENGTH
 from dataset.dataset import Dataset
 from dataset.single_data_instance import Numbering, Permutation
 from inference.backends.llama_cpp_server_backend import LlamaCppServerInferenceBackend
 from inference.inference_backend import InferenceBackend
 from utils.list_utils import ensure_list
+from utils.logger import Logger
 from utils.timer import Timer
 from storage.storage_backend import StorageBackend
-from tabulate import tabulate
-from model_config.model_config import ModelConfig
 
 
 class ThinkBenchArguments:
@@ -48,9 +45,9 @@ class ThinkBenchArguments:
 
 class ThinkBench:
     @staticmethod
-    def run_benchmarks(arguments: ThinkBenchArguments) -> None:
+    def run_thinkbench(arguments: ThinkBenchArguments) -> None:
         inference_backend: Union[InferenceBackend, None] = None
-        metrics_list: List[List] = []
+        test_case_results: List[TestCaseResult] = []
 
         try:
             Timer.get_instance("Run all").start_over()
@@ -58,35 +55,35 @@ class ThinkBench:
             inference_backend: InferenceBackend = arguments.inference_backend()
             storage_backend: StorageBackend = arguments.storage_backend()
 
-            metrics_list = ThinkBench.execute_benchmarks(arguments, inference_backend, storage_backend)
+            test_case_results = ThinkBench.run_test_cases(arguments, inference_backend, storage_backend)
         except Exception as e:
-            print(f"An error occurred during the benchmarking process: {e}")
+            Logger.error(f"An error occurred during the benchmarking process: {e}")
         finally:
             Timer.get_instance("Run all").end(print_timer=True)
-            if metrics_list:
-                ThinkBench.print_summary(metrics_list)
+            if test_case_results:
+                Logger.print_results_table(test_case_results)
             if inference_backend and isinstance(inference_backend, LlamaCppServerInferenceBackend):
                 inference_backend.terminate_all_running_servers()
 
     @staticmethod
-    def execute_benchmarks(
+    def run_test_cases(
             arguments: ThinkBenchArguments,
             inference_backend: InferenceBackend,
             storage_backend: StorageBackend
-    ) -> List[List]:
-        metrics_list: List[List] = []
+    ) -> List[TestCaseResult]:
+        test_case_results: List[TestCaseResult] = []
 
         cached_datasets: Dict[str, Dataset] = {}
 
         for model_config in arguments.model_configs:
-            ThinkBench.print_model_header(model_config)
+            Logger.print_header(f"Benchmarking model {model_config.model_name}")
             inference_backend.load_model_from_config(model_config)
 
             for dataset in arguments.datasets:
                 if dataset.name not in cached_datasets.keys():
                     cached_datasets[dataset.name] = dataset()
                 else:
-                    print(f"Dataset {dataset.name} was already loaded previously.")
+                    Logger.info(f"Dataset {dataset.name} was already loaded previously. Using cached version.")
 
                 dataset = cached_datasets[dataset.name]
 
@@ -106,39 +103,21 @@ class ThinkBench:
                         comment=arguments.comment
                     )
 
-                    metrics_list.append([
-                        test_case_result["model"],
-                        f"{test_case_result['metrics']['accuracy']:.2f}",
-                        str(datetime.timedelta(seconds=test_case_result["execution_seconds"])).split(".")[0]  # trim ms
-                    ])
-
                     storage_backend.store(test_case_result)
+                    test_case_results.append(test_case_result)
 
-        return metrics_list
-
-    @staticmethod
-    def print_model_header(model_config: ModelConfig):
-        header = f"{PRINT_SEPARATOR * 10} Benchmarking model {model_config.model_name} {PRINT_SEPARATOR  * 10}"
-        print("\n" + PRINT_SEPARATOR * len(header))
-        print(header)
-        print(PRINT_SEPARATOR * len(header))
-
-    @staticmethod
-    def print_summary(metrics_list):
-        print(PRINT_SEPARATOR * PRINT_SEPARATOR_LENGTH)
-        print(PRINT_SEPARATOR * PRINT_SEPARATOR_LENGTH)
-        print(tabulate(metrics_list, headers=["Model", "Accuracy (%)", "Execution time"], tablefmt="outline"))
+        return test_case_results
 
 
 if __name__ == '__main__':
     from benchmark.benchmark import BENCHMARK_REGISTRY
     from dataset.dataset import DATASET_REGISTRY
     from inference.inference_backend import INFERENCE_BACKEND_REGISTRY
-    from model_config.model_config import MODEL_CONFIG_REGISTRY, ModelConfig
+    from model_config.model_config import MODEL_CONFIG_REGISTRY
     from storage.storage_backend import STORAGE_BACKEND_REGISTRY
 
-    def run_benchmarks_cli(**kwargs):
-        raw_arguments = ThinkBenchArguments(**kwargs)
-        ThinkBench.run_benchmarks(raw_arguments)
+    def run_thinkbench_cli(**kwargs):
+        arguments = ThinkBenchArguments(**kwargs)
+        ThinkBench.run_thinkbench(arguments)
 
-    fire.Fire(run_benchmarks_cli)
+    fire.Fire(run_thinkbench_cli)
