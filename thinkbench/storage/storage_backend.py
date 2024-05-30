@@ -7,12 +7,12 @@ from utils.registry import Registry
 
 class StorageBackend(ABC):
     @abstractmethod
-    def store(self, test_case_result: TestCaseResult):
+    def store_test_case_result(self, test_case_result: TestCaseResult):
         raise NotImplementedError
 
-    def store_multiple(self, test_case_result_list: List[TestCaseResult]):
-        for test_case_result in test_case_result_list:
-            self.store(test_case_result)
+    def store_multiple_test_case_results(self, test_case_results: List[TestCaseResult]):
+        for test_case_result in test_case_results:
+            self.store_test_case_result(test_case_result)
 
 
 STORAGE_BACKEND_REGISTRY = Registry(

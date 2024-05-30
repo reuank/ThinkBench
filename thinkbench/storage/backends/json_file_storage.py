@@ -22,7 +22,7 @@ class JsonFileStorage(StorageBackend):
             print("Please specify an output path and a hostname. Did you forget to source .env?")
             exit()
 
-    def store(self, test_case_result: TestCaseResult):
+    def store_test_case_result(self, test_case_result: TestCaseResult):
         filename = f"{self.output_path}/" \
                    f"{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}" \
                    f"_{test_case_result['benchmark_name']}" \

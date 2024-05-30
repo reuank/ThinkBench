@@ -177,5 +177,6 @@ class InferenceBackend(ABC):
 
 INFERENCE_BACKEND_REGISTRY = Registry(
     registry_name="inference_backends",
-    base_class=InferenceBackend
+    base_class=InferenceBackend,
+    lazy_load_dirs=["inference/backends"]
 )

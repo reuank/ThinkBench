@@ -3,7 +3,7 @@ from dataset.hf_dataset import HFDataset
 from dataset.single_data_instance import SingleDataInstance
 
 
-@DATASET_REGISTRY.register(name="arc-challenge")
+@DATASET_REGISTRY.register(name="arc-challenge", is_default=True)
 class ARCChallengeDataset(HFDataset):
     hf_path = "ai2_arc"
     hf_name = "ARC-Challenge"

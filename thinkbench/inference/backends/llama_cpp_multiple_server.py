@@ -12,7 +12,7 @@ from model_config.model_config import ModelConfig
 from utils.timer import Timer
 
 
-@INFERENCE_BACKEND_REGISTRY.register("llama.cpp-multi-gpu")
+@INFERENCE_BACKEND_REGISTRY.register(name="llama.cpp-multi-gpu")
 class LlamaCppMultiGPUServerInferenceBackend(LlamaCppServerInferenceBackend):
     def __init__(self):
         raise NotImplementedError

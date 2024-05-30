@@ -30,7 +30,7 @@ MODEL_CONFIG_REGISTRY.register(name="llama-2-13b-chat", flags={"required": True}
 ))
 
 
-MODEL_CONFIG_REGISTRY.register(name="orca-2-7b", flags={"required": True})(HFModelConfig(
+MODEL_CONFIG_REGISTRY.register(name="orca-2-7b", is_default=True, flags={"required": True})(HFModelConfig(
     model_name="orca-2-7b",
     chat_template_name="orca-2",
     hf_base_model_repo="microsoft/Orca-2-7b",

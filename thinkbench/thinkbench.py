@@ -17,17 +17,17 @@ from storage.storage_backend import StorageBackend
 class ThinkBenchArguments:
     def __init__(
         self,
-        models: str = "default",
-        datasets: str = "default",
-        inference_backend: str = "default",
-        benchmarks: str = "default",
-        storage: str = "default",
-        limit: int = -1,
-        random: int = -1,
-        labels: str = "unchanged",
-        permutation: str = "unchanged",
-        use_chat_template: bool = False,
-        comment: str = ""
+        models: str,
+        datasets: str,
+        inference_backend: str,
+        benchmarks: str,
+        storage: str,
+        limit: int,
+        random: int,
+        labels: str,
+        permutation: str,
+        use_chat_template: bool,
+        comment: str
     ):
         self.model_configs = MODEL_CONFIG_REGISTRY.get_list(ensure_list(models))
         self.datasets = DATASET_REGISTRY.get_list(ensure_list(datasets))
@@ -103,7 +103,7 @@ class ThinkBench:
                         comment=arguments.comment
                     )
 
-                    storage_backend.store(test_case_result)
+                    storage_backend.store_test_case_result(test_case_result)
                     test_case_results.append(test_case_result)
 
         return test_case_results
@@ -115,9 +115,24 @@ if __name__ == '__main__':
     from inference.inference_backend import INFERENCE_BACKEND_REGISTRY
     from model_config.model_config import MODEL_CONFIG_REGISTRY
     from storage.storage_backend import STORAGE_BACKEND_REGISTRY
+    def run_thinkbench_test_cli(
+        models: str,
+        datasets: str = "default",
+        inference_backend: str = "default",
+        benchmarks: str = "default",
+        storage: str = "default",
+        limit: int = -1,
+        random: int = -1,
+        labels: str = "unchanged",
+        permutation: str = "unchanged",
+        use_chat_template: bool = False,
+        comment: str = ""
+    ):
+        arguments = ThinkBenchTestArguments(
+            models, datasets, inference_backend, benchmarks, storage, limit,
+            random, labels, permutation, use_chat_template, comment
+        )
+        ThinkBench.run_thinkbench_test(arguments)
 
-    def run_thinkbench_cli(**kwargs):
-        arguments = ThinkBenchArguments(**kwargs)
-        ThinkBench.run_thinkbench(arguments)
 
     fire.Fire(run_thinkbench_cli)
