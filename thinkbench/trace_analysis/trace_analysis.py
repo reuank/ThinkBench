@@ -1,24 +1,40 @@
+import csv
+import os
 import re
 import json
 import datetime
 import string
+from abc import ABC, abstractmethod
 from enum import Enum
+from pathlib import Path
 from string import Template
 
-import random
 import nltk.data
 import xlsxwriter
-from typing import List, Dict
+from typing import List, Dict, Union
 
-import fire
 from tabulate import tabulate
 
+from utils.registry import Registry
 from utils.result_loader import ResultLoader
+
+
+class TraceAnalysisResult(ABC):
+    @abstractmethod
+    def write_to_file(self):
+        raise NotImplementedError
 
 
 class SingleResult:
     def __init__(self, data):
         self.data = data
+
+
+class Category(Enum):
+    COT_TRACE_LABEL_UNAMBIGUOUS_MATCH = 1
+    COT_TRACE_LABEL_UNAMBIGUOUS_NO_MATCH = 2
+    COT_TRACE_LABEL_AMBIGUOUS = 3
+    NO_COT_TRACE_LABEL = 4
 
 
 class Error(Enum):
@@ -71,64 +87,122 @@ class Error(Enum):
     RESERVED_ERROR_2 = "Reserved error 2"
     RESERVED_ERROR_3 = "Reserved error 3"
 
-
-class TraceAnalyzer:
     @staticmethod
-    def analyze_single_model(method: str, result_file: str, baseline_result_file: str = None):
+    def map_to_category(error: "Error") -> Category:
+        error_category_mapping: Dict["Error", Category] = {
+            Error.AMBIGUOUS: Category.COT_TRACE_LABEL_AMBIGUOUS,
+            Error.NO_LABEL_PICKED: Category.NO_COT_TRACE_LABEL,
+            Error.QUESTION: Category.NO_COT_TRACE_LABEL,
+            Error.EXTRACTION_FAILED: Category.NO_COT_TRACE_LABEL,
+            Error.RESERVED_ERROR_1: Category.NO_COT_TRACE_LABEL,
+            Error.RESERVED_ERROR_2: Category.NO_COT_TRACE_LABEL,
+            Error.RESERVED_ERROR_3: Category.NO_COT_TRACE_LABEL
+        }
+
+        if error in error_category_mapping.keys():
+            return error_category_mapping[error]
+        else:
+            raise ValueError(f"Error {error.value} is not assigned to a label category.")
+
+    error_category_mapping: Dict["Error", Category] = {
+        AMBIGUOUS: Category.COT_TRACE_LABEL_AMBIGUOUS,
+        NO_LABEL_PICKED: Category.NO_COT_TRACE_LABEL,
+        QUESTION: Category.NO_COT_TRACE_LABEL,
+        EXTRACTION_FAILED: Category.NO_COT_TRACE_LABEL,
+        RESERVED_ERROR_1: Category.NO_COT_TRACE_LABEL,
+        RESERVED_ERROR_2: Category.NO_COT_TRACE_LABEL,
+        RESERVED_ERROR_3: Category.NO_COT_TRACE_LABEL
+    }
+
+
+class TraceAnalysis(ABC):
+    @staticmethod
+    def run_trace_analysis(method: str, result_path: str, baseline_result_path: str):
+        analysis: TraceAnalysis = TRACE_ANALYSIS_REGISTRY.get(method)()
+        results: List[TraceAnalysisResult] = []
+
+        result_path = Path(result_path)
+        baseline_result_path = Path(baseline_result_path)
+
+        if result_path.is_dir() and baseline_result_path.is_dir():
+            model_names, results_data, baseline_results_data = ResultLoader.load_two_runs_from_dirs(
+                first_results_dir=result_path,
+                second_results_dir=baseline_result_path
+            )
+
+            results.extend(analysis.run_multiple_analysis(results_data, baseline_results_data))
+        else:
+            results_data = ResultLoader.load_result(result_file=result_path)
+            baseline_results_data = ResultLoader.load_result(result_file=baseline_result_path)
+
+            results.append(analysis.run_analysis(results_data, baseline_results_data))
+
+        for result in results:
+            result.write_to_file()
+
+    @abstractmethod
+    def run_analysis(self, result_file: Dict, baseline_result_file: Union[Dict, None]):
+        raise NotImplementedError
+
+    @abstractmethod
+    def run_multiple_analysis(self, result_file: Dict, baseline_result_file: Dict):
+        raise NotImplementedError
+
+    @staticmethod
+    def analyze_single_model(result_file: str, baseline_result_file: str = None):
         baseline_result_file_data = None
         if baseline_result_file:
             baseline_result_file_data = ResultLoader.load_result_file(baseline_result_file)
 
         result_file_data = ResultLoader.load_result_file(result_file)
 
-        analysis_result = TraceAnalyzer.method_mapping[method](result_file_data, baseline_result_file_data)
+        analysis_result = TraceAnalysis.analyze_trace_label_match(result_file_data, baseline_result_file_data)
 
-        TraceAnalyzer.write_to_xlsx(analysis_result)
-        TraceAnalyzer.write_to_json_file(data=analysis_result, suffix=f"{analysis_result['model_name']}_analysis")
+        #TraceAnalysis.write_to_xlsx(analysis_result)
+        #TraceAnalysis.write_to_json_file(data=analysis_result, suffix=f"{analysis_result['model_name']}_analysis")
 
-        samples = TraceAnalyzer.pick_samples(result=analysis_result, n_samples=100, seed=analysis_result["model_name"])
-        TraceAnalyzer.write_to_xlsx(samples, samples=True)
+        samples = TraceAnalysis.pick_samples(result=analysis_result, n_samples=100, seed=analysis_result["model_name"])
+        TraceAnalysis.write_to_xlsx_file(samples, samples=True)
 
     @staticmethod
-    def analyze_multiple_models(method: str, cot_results_dir: str, non_cot_results_dir: str):
+    def analyze_multiple_models(cot_results_dir: str, non_cot_results_dir: str):
         model_names, non_cot_results_data, cot_results_data = ResultLoader.load_cot_and_non_cot_from_dirs(cot_results_dir, non_cot_results_dir)
 
         analysis_results = []
         for model_id, model_name in enumerate(model_names):
             analysis_results.append(
-                TraceAnalyzer.method_mapping[method](cot_results_data[model_id], non_cot_results_data[model_id])
+                TraceAnalysis.analyze_trace_label_match(cot_results_data[model_id], non_cot_results_data[model_id])
             )
 
-        if method == "trace-label-match":
-            row_values = []
-            model_trace_ids = {}
-            for analysis_result in analysis_results:
-                row_values.append([
-                    analysis_result["model_name"],
-                    len(analysis_result["extractable_traces"]),
-                    len(analysis_result["ambiguous_traces"]),
-                    len(analysis_result["question_command_traces"]),
-                    len(analysis_result["unresolved_traces"])
-                ])
+        row_values = []
+        model_trace_ids = {}
+        for analysis_result in analysis_results:
+            row_values.append([
+                analysis_result["model_name"],
+                len(analysis_result["extractable_traces"]),
+                len(analysis_result["ambiguous_traces"]),
+                len(analysis_result["question_command_traces"]),
+                len(analysis_result["unresolved_traces"])
+            ])
 
-                model_trace_ids.update({analysis_result["model_name"]: analysis_result["trace_ids"]})
+            model_trace_ids.update({analysis_result["model_name"]: analysis_result["trace_ids"]})
 
-            extractable_traces_without_problems = []
+        extractable_traces_without_problems = []
 
-            for (model_name, trace_ids) in model_trace_ids.items():
-                extractable_traces_without_problems.append(list(
-                    set(trace_ids["extractable"])
-                    - set(trace_ids["ambiguous"])
-                    - set(trace_ids["questions"])
-                ))
+        for (model_name, trace_ids) in model_trace_ids.items():
+            extractable_traces_without_problems.append(list(
+                set(trace_ids["extractable"])
+                - set(trace_ids["ambiguous"])
+                - set(trace_ids["questions"])
+            ))
 
-            id_intersection = extractable_traces_without_problems[0]
-            for id_list in extractable_traces_without_problems[1:]:
-                id_intersection = list(set(id_intersection) & set(id_list))
+        id_intersection = extractable_traces_without_problems[0]
+        for id_list in extractable_traces_without_problems[1:]:
+            id_intersection = list(set(id_intersection) & set(id_list))
 
-            print(f"Length of extractable intersection: {len(id_intersection)}")
+        print(f"Length of extractable intersection: {len(id_intersection)}")
 
-            print(tabulate(row_values, headers=["Model", "Extractable", "Ambiguous", "Questions", "Not extractable"], tablefmt="outline"))
+        print(tabulate(row_values, headers=["Model", "Extractable", "Ambiguous", "Questions", "Not extractable"], tablefmt="outline"))
 
 
     @staticmethod
@@ -140,18 +214,8 @@ class TraceAnalyzer:
         return [single_result["model_choice"] for single_result in data["results"]]
 
     @staticmethod
-    def pick_samples(result: Dict, n_samples: int = 100, seed: str = "") -> Dict:
-        results = result["result_rows"]
-        n_results = len(results)
-
-        random.seed(seed)
-        samples = [results[random.randint(0, n_results - 1)] for i in range(0, n_samples)]
-
-        assert len(samples) == n_samples
-
-        result.update(result_rows=samples)
-
-        return result
+    def write_samples():
+        pass
 
     @staticmethod
     def write_to_json_file(data, suffix: str = ""):
@@ -162,7 +226,7 @@ class TraceAnalyzer:
         print(f"File {filename} written.")
 
     @staticmethod
-    def write_to_xlsx(analysis_result: Dict, suffix: str = "", samples: bool = False):
+    def write_to_xlsx_file(analysis_result: Dict, file_name_suffix: str = "", samples: bool = False):
         padding_top_left = 1
 
         cols = [
@@ -508,9 +572,13 @@ class TraceAnalyzer:
             Template(" ${label}."),
             Template("option ${label}"),
             Template("Option ${label}"),
+
             # Mistral 7b instr.
             Template(": ${label},"),  # So, the answer is: D,
             Template("${label}:"),  # So, the most likely answer is C:
+
+            # Orca 2 13b
+            Template("Final Answer: ${label}"),
         ]
 
         label_exclusion_patterns = [
@@ -551,12 +619,12 @@ class TraceAnalyzer:
 
     @staticmethod
     def analyze_trace_label_match(test_result, baseline_test_result = None):
-        single_results: List[SingleResult] = TraceAnalyzer.get_single_results(test_result)
+        single_results: List[SingleResult] = TraceAnalysis.get_single_results(test_result)
 
         baseline_model_choices: List[str] = []
         baseline_uuid = ""
         if baseline_test_result:
-            baseline_model_choices = TraceAnalyzer.get_model_choices(baseline_test_result)
+            baseline_model_choices = TraceAnalysis.get_model_choices(baseline_test_result)
             baseline_uuid = baseline_test_result["uuid"]
 
         formatted_single_results = [
@@ -632,6 +700,12 @@ class TraceAnalyzer:
             # Orca
             r"Based on the",
             fr"Based on [{re.escape(in_sentence_chars)}]+ analysis",
+            fr"Based on [{re.escape(in_sentence_chars)}]+ reasoning",
+            fr"Based on [{re.escape(in_sentence_chars)}]+ information",
+            r"Comparing the answer choices",
+            r"Comparing the remaining choices",
+            r"### Final Answer:",
+            r"#Answer",
 
             # Mistral
             r"Therefore, the",
@@ -653,15 +727,25 @@ class TraceAnalyzer:
             r"not the correct",
             r"may not be the best choice",
             r"not the best",
-            r"the answer is not",
 
             # Orca
             r"not the most likely",
             r"we can eliminate",
+            r"answer is not",
 
             # Mistral
-            r"the answer is not",
             r"rather than"
+        ]
+
+        none_picked_indicators = [
+            # Orca 2 13b
+            r"None of the given",
+            r"no single correct answer",
+            rf"none of the [{re.escape(in_sentence_chars)}]* answer choices",
+            r"none of the answer choices",
+            rf"none of the options are correct",
+            r"error in the given answer choices",
+            r"no correct answer among the given choices",
         ]
 
         question_command_indicators = [
@@ -706,6 +790,7 @@ class TraceAnalyzer:
 
             trace_answer_sentences = []
             question_command_sentences = []
+            none_picked_sentences = []
 
             # Loop over all sentences of the reasoning trace
             for trace_sentence_id, trace_sentence in enumerate(trace_sentences):
@@ -715,7 +800,7 @@ class TraceAnalyzer:
 
                 # Check for matches with after_answer_sentence_indicator
                 if any(after_answer_sentence_indicator in trace_sentence for after_answer_sentence_indicator in after_answer_sentence_indicators):  # Include sentence before
-                    if len(TraceAnalyzer.extract_label_matches_from_sentence(trace_sentence, formatted_single_result["labels"])) == 0:  # Indicator stands alone, not e.g. "Option (B) improve existing products: This option is correct!"
+                    if len(TraceAnalysis.extract_label_matches_from_sentence(trace_sentence, formatted_single_result["labels"])) == 0:  # Indicator stands alone, not e.g. "Option (B) improve existing products: This option is correct!"
                         trace_answer_sentences.append(trace_sentences[trace_sentence_id-1] + "\n" + trace_sentence)
                         continue
 
@@ -723,8 +808,15 @@ class TraceAnalyzer:
                 if any(re.search(answer_sentence_indicator, trace_sentence, re.IGNORECASE) for answer_sentence_indicator in answer_sentence_indicators):
                     trace_answer_sentences.append(trace_sentence)
 
+                # If sentence is not skipped until here, search for answer indicators
+                if any(re.search(none_picked_indicator, trace_sentence, re.IGNORECASE) for none_picked_indicator in none_picked_indicators):
+                    # trace_answer_sentences.append(trace_sentence)
+                    none_picked_sentences.append(trace_sentence)
+
+
                 # The last sentence contains a question or a command, so the model probably did not chose a label
                 if trace_sentence_id == len(trace_sentences) - 1 and any(re.search(question_command_indicator, trace_sentence) for question_command_indicator in question_command_indicators):
+                    # trace_answer_sentences.append(trace_sentence)
                     question_command_sentences.append(trace_sentence)
 
             for trace_answer_sentence in trace_answer_sentences:
@@ -762,7 +854,7 @@ class TraceAnalyzer:
 
                 extracted_labels = []
                 for trace_answer_sentence in trace_answer_sentences:
-                    extracted_labels += TraceAnalyzer.extract_label_matches_from_sentence(trace_answer_sentence, formatted_single_result["labels"])
+                    extracted_labels += TraceAnalysis.extract_label_matches_from_sentence(trace_answer_sentence, formatted_single_result["labels"])
 
                 extracted_labels = sorted(set(extracted_labels))
 
@@ -770,7 +862,8 @@ class TraceAnalyzer:
                     table_row.update(error=Error.AMBIGUOUS.value)
                     ambiguous_traces.append([trace_sentences, trace_answer_sentences, list(extracted_labels), formatted_single_result["correct_answer"]])
                     trace_ids["ambiguous"].append(formatted_single_result["question_id"])
-
+                elif len(extracted_labels) == 0 and len(none_picked_sentences) > 0:
+                    table_row.update(error=Error.NO_LABEL_PICKED.value)
                 table_row.update(automatic_extraction="\n======\n".join(extracted_labels))
                 extractable_traces.append([trace_answer_sentences, extracted_labels])
                 trace_ids["extractable"].append(formatted_single_result["question_id"])
@@ -782,6 +875,8 @@ class TraceAnalyzer:
 
             else:
                 table_row.update(answer_sentences="")
+                if len(none_picked_sentences) > 0:
+                    table_row.update(error=Error.NO_LABEL_PICKED.value)
                 unresolved_traces.append([formatted_single_result["question_id"], trace_sentences])
                 trace_ids["unresolved"].append(formatted_single_result["question_id"])
 
@@ -807,11 +902,3 @@ class TraceAnalyzer:
         }
 
         return analysis
-
-    method_mapping: Dict[str, callable] = {
-        "trace-label-match": analyze_trace_label_match
-    }
-
-
-if __name__ == '__main__':
-    fire.Fire(TraceAnalyzer.analyze_multiple_models)

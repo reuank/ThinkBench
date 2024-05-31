@@ -75,7 +75,7 @@ class InferenceBackend(ABC):
             if not hostname:
                 raise KeyError
         except KeyError:
-            print("Please specify the necessary environment variables.")
+            print("Please specify a hostname in the .env file. Did you forger to source .env?")
             hostname = ""
 
         print("="*45)

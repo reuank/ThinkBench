@@ -46,7 +46,7 @@ class Logger:
     @staticmethod
     def print_seperator(separator: str = PRINT_SEPARATOR, length: int = PRINT_SEPARATOR_LENGTH, count: int = 1):
         for _ in range(count):
-            print(separator, length)
+            print(separator * length)
 
     @staticmethod
     def print_headline(separator: str = PRINT_SEPARATOR, length: int = PRINT_SEPARATOR_LENGTH, count: int = 1):

@@ -56,3 +56,10 @@ DEFAULT_ANSWER_OPTION_TEMPLATE: str = (
     "{% endfor %}"
     "\n\n"
 )
+
+# Analysis options
+TRACE_SAMPLES_PER_RUN: int = 25
+SAMPLES_SEED: int = 5555
+
+# Storage options
+CSV_DELIMITER: str = ";"

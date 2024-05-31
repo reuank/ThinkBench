@@ -8,13 +8,16 @@ from dataset.dataset import Dataset
 from dataset.single_data_instance import Numbering, Permutation
 from inference.backends.llama_cpp_server_backend import LlamaCppServerInferenceBackend
 from inference.inference_backend import InferenceBackend
+from trace_analysis.trace_classifier import TraceClassifier
+from trace_analysis.trace_samples_storer import TraceSamplesStorer
 from utils.list_utils import ensure_list
 from utils.logger import Logger
+from utils.result_loader import ResultLoader
 from utils.timer import Timer
 from storage.storage_backend import StorageBackend
 
 
-class ThinkBenchArguments:
+class TestArguments:
     def __init__(
         self,
         models: str,
@@ -45,7 +48,7 @@ class ThinkBenchArguments:
 
 class ThinkBench:
     @staticmethod
-    def run_thinkbench(arguments: ThinkBenchArguments) -> None:
+    def run_test(arguments: TestArguments) -> None:
         inference_backend: Union[InferenceBackend, None] = None
         test_case_results: List[TestCaseResult] = []
 
@@ -67,7 +70,7 @@ class ThinkBench:
 
     @staticmethod
     def run_test_cases(
-            arguments: ThinkBenchArguments,
+            arguments: TestArguments,
             inference_backend: InferenceBackend,
             storage_backend: StorageBackend
     ) -> List[TestCaseResult]:
@@ -115,8 +118,10 @@ if __name__ == '__main__':
     from inference.inference_backend import INFERENCE_BACKEND_REGISTRY
     from model_config.model_config import MODEL_CONFIG_REGISTRY
     from storage.storage_backend import STORAGE_BACKEND_REGISTRY
-    def run_thinkbench_test_cli(
-        models: str,
+
+
+    def run_test_cli(
+        models: str = "default",
         datasets: str = "default",
         inference_backend: str = "default",
         benchmarks: str = "default",
@@ -128,11 +133,37 @@ if __name__ == '__main__':
         use_chat_template: bool = False,
         comment: str = ""
     ):
-        arguments = ThinkBenchTestArguments(
+        arguments = TestArguments(
             models, datasets, inference_backend, benchmarks, storage, limit,
             random, labels, permutation, use_chat_template, comment
         )
-        ThinkBench.run_thinkbench_test(arguments)
+        ThinkBench.run_test(arguments)
+
+    def store_trace_samples_cli(
+        cot_results_path: str,
+        non_cot_results_path: str,
+    ):
+        cot_results, non_cot_results = ResultLoader.load_two_runs(cot_results_path, non_cot_results_path)
+        ResultLoader.ensure_reasoning_present(cot_results)
+        TraceSamplesStorer.store_trace_samples(cot_results, non_cot_results)
+
+    def classify_traces_cli(
+        cot_results_path: str,
+        non_cot_results_path: str,
+        evaluate: bool = False
+    ):
+        cot_results, non_cot_results = ResultLoader.load_two_runs(cot_results_path, non_cot_results_path)
+        ResultLoader.ensure_reasoning_present(cot_results)
+        classifications = TraceClassifier.classify_traces(cot_results, non_cot_results)
+        TraceClassifier.store_classification_results(classifications)
+
+        if evaluate:
+            TraceClassifier.evaluate_classifications(classifications)
 
 
-    fire.Fire(run_thinkbench_cli)
+
+    fire.Fire({
+        'run-test': run_test_cli,
+        'store-trace-samples': store_trace_samples_cli,
+        'classify-traces': classify_traces_cli
+    })
