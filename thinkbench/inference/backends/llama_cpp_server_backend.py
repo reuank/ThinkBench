@@ -15,7 +15,8 @@ from requests import Session
 from tqdm import tqdm
 
 from benchmark.benchmark import SingleBenchmarkResult
-from constants import COMPLETION_SEED, N_GPU_LAYERS, INFERENCE_BACKEND_VERBOSE, TOKENIZE_BEFORE, SERVER_HOST
+from constants import COMPLETION_SEED, N_GPU_LAYERS, INFERENCE_BACKEND_VERBOSE, TOKENIZE_BEFORE, SERVER_HOST, \
+    DEFAULT_MODEL_PATH
 from dataset.single_data_instance import SingleDataInstance
 from inference.completion import CompletionConfig, CompletionResult, Choice, Logprobs, Usage
 from inference.decoder import Decoder, GreedyConstrainedDecoder, TemperatureDecoder, GreedyDecoder
@@ -23,6 +24,8 @@ from inference.inference_backend import InferenceBackend, INFERENCE_BACKEND_REGI
 from benchmark.testcase import TestCase
 from model_config.hf_model_config import HFModelConfig
 from model_config.model_config import ModelConfig, QuantizationMethod
+from utils.env_loader import EnvReader
+from utils.logger import Logger
 from utils.timer import Timer
 
 
@@ -39,29 +42,15 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     headers = {'content-type': 'application/json'}
 
     def __init__(self):
-        # TODO: implement ensure_exists() function or python config file
-        try:
-            model_folder_path_str = os.environ.get("TB_MODEL_PATH")
-            n_parallel = os.environ.get("TB_LLAMA_CPP_SERVER_SLOTS")
-            server_binary_path = os.environ.get("LLAMA_CPP_SERVER_BINARY")
-            port = os.environ.get("LLAMA_CPP_SERVER_PORT")
-            if not model_folder_path_str or not n_parallel or not server_binary_path:
-                raise KeyError
-            else:
-                self.model_folder_path: Path = Path(model_folder_path_str)
-                self.model_folder_path.mkdir(parents=True, exist_ok=True)
-                self.n_parallel = int(n_parallel)
-                self.n_ctx = self.n_parallel * 4096
-                self.server_binary_path: Path = Path(server_binary_path)
+        self.model_folder_path: Path = Path(EnvReader.get("TB_MODEL_PATH", DEFAULT_MODEL_PATH))
+        self.model_folder_path.mkdir(parents=True, exist_ok=True)
+        Logger.info(f"Using model path {self.model_folder_path}")
 
-                if not port:
-                    port = 8080
-                self.port: int = int(port)
-        except KeyError:
-            print("Please specify a model path, the number of server slots and the server binary path. "
-                  "Did you forget to source .env?")
-            exit()
+        self.n_parallel: int = int(EnvReader.get("TB_LLAMA_CPP_SERVER_SLOTS", required=True))
+        self.server_binary_path: Path = Path(EnvReader.get("LLAMA_CPP_SERVER_BINARY", required=True))
+        self.port: int = int(EnvReader.get("LLAMA_CPP_SERVER_PORT", "8080"))
 
+        self.n_ctx = self.n_parallel * 4096
         self.session: Session = Session()
 
     @property
@@ -82,7 +71,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
     def load_model_from_config(self, model_config: ModelConfig):
         import subprocess
 
-        print("Terminating any old server processes...")
+        Logger.info("Terminating any old server processes...")
         if self.process:
             self.process.terminate()
         self.terminate_all_running_servers()
@@ -133,7 +122,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
 
         self.process = subprocess.Popen(server_process_arguments, stdout=stdout, stderr=subprocess.STDOUT)
         time.sleep(2)
-        print(f"Currently loaded model on the available server: {self.get_backend_properties()['loaded_model']}")
+        Logger.info(f"Currently loaded model on the available server: {self.get_backend_properties()['loaded_model']}")
         Timer.get_instance(f"Load {hf_filename}").end(print_timer=True)
 
         self.current_model_config = model_config
@@ -401,7 +390,7 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             try:
                 # Check if process name or the executable matches the program name
                 if program_name in proc.info['name'] or (proc.info['exe'] and program_name in proc.info['exe']):
-                    print(f"Killing process '{proc.info['name']}' with PID {proc.info['pid']}")
+                    Logger.info(f"Killing process '{proc.info['name']}' with PID {proc.info['pid']}")
                     proc.send_signal(signal.SIGTERM)  # or proc.terminate()
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass  # Process has been killed or can't be accessed

@@ -7,7 +7,7 @@ from llama_cpp.llama_tokenizer import LlamaHFTokenizer
 from tqdm import tqdm
 
 from benchmark.benchmark import SingleBenchmarkResult
-from constants import N_GPU_LAYERS, INFERENCE_BACKEND_VERBOSE
+from constants import N_GPU_LAYERS, INFERENCE_BACKEND_VERBOSE, DEFAULT_MODEL_PATH
 from dataset.single_data_instance import SingleDataInstance
 from inference.completion import CompletionHistory, CompletionConfig, CompletionResult, Choice, Logprobs, Usage
 from inference.decoder import Decoder, GreedyConstrainedDecoder, GreedyDecoder, BeamSearch
@@ -15,6 +15,8 @@ from inference.inference_backend import InferenceBackend, INFERENCE_BACKEND_REGI
 from benchmark.testcase import TestCase
 from model_config.hf_model_config import HFModelConfig
 from model_config.model_config import ModelConfig, QuantizationMethod
+from utils.env_loader import EnvReader
+from utils.logger import Logger
 from utils.timer import Timer
 
 
@@ -26,17 +28,10 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
     logits_all: bool = True
 
     def __init__(self):
-        # TODO: implement ensure_exists() function or python config file
-        try:
-            model_folder_path_str = os.environ.get("TB_MODEL_PATH")
-            if not model_folder_path_str:
-                raise KeyError
-            else:
-                self.model_folder_path: Path = Path(model_folder_path_str)
-                self.model_folder_path.mkdir(parents=True, exist_ok=True)
-        except KeyError:
-            print("Please specify a model path. Did you forget to source .env?")
-            exit()
+        self.model_folder_path: Path = Path(EnvReader.get("TB_MODEL_PATH", DEFAULT_MODEL_PATH))
+        self.model_folder_path.mkdir(parents=True, exist_ok=True)
+
+        Logger.info(f"Using model path {self.model_folder_path}")
 
     @property
     def supported_quantization_methods(self) -> List[QuantizationMethod]:
@@ -64,7 +59,7 @@ class LlamaCppPythonInferenceBackend(InferenceBackend):
         # Load correct Tokenizer
         if model_config.use_hf_tokenizer:
             tokenizer = LlamaHFTokenizer.from_pretrained(model_config.hf_tokenizer)
-            print(f"External Tokenizer {model_config.hf_tokenizer} loaded.")
+            Logger.info(f"External Tokenizer {model_config.hf_tokenizer} loaded.")
         else:
             tokenizer = None  # Defaults to LlamaTokenizer
 

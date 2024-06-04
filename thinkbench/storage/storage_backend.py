@@ -1,16 +1,17 @@
-import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List
 
 from benchmark.results import TestCaseResult
+from constants import DEFAULT_OUTPUT_PATH
+from utils.env_loader import EnvReader
 from utils.registry import Registry
 
 
 class StorageBackend(ABC):
     def __init__(self):
         try:
-            self.output_path = os.environ.get("TB_OUTPUT_PATH")
+            self.output_path = EnvReader.get("TB_OUTPUT_PATH", DEFAULT_OUTPUT_PATH)
             if not self.output_path:
                 raise KeyError
             else:
@@ -21,7 +22,7 @@ class StorageBackend(ABC):
                 for folder in [self.results_path, self.analysis_path]:
                     folder.mkdir(parents=True, exist_ok=True)
         except KeyError:
-            print("Please specify an output path. Did you forget to source .env?")
+            print("Please specify an output path, either in constants.py or in the .env file .")
             exit()
 
     @abstractmethod

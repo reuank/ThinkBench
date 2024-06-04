@@ -4,13 +4,15 @@ LIBRARY_ROOT: Path = Path(__file__).parent
 
 # Server options
 SERVER_HOST: str = "localhost"
+N_SERVER_SLOTS: int = 1
 
 # Logging options
 LOG_INFO: bool = True
 LOG_ERROR: bool = True
+LOGGER_PREFIX = "##### "
 TIMER_VERBOSE: bool = False
 INFERENCE_BACKEND_VERBOSE: bool = False
-PRINT_SEPARATOR_LENGTH: int = 45
+PRINT_SEPARATOR_LENGTH: int = 50
 PRINT_SEPARATOR: str = "="
 
 # Dataset defaults
@@ -63,3 +65,7 @@ SAMPLES_SEED: int = 5555
 
 # Storage options
 CSV_DELIMITER: str = ","
+
+DEFAULT_THINKBENCH_PATH: str = "~/.thinkbench"
+DEFAULT_OUTPUT_PATH: str = DEFAULT_THINKBENCH_PATH + "/results"
+DEFAULT_MODEL_PATH: str = DEFAULT_THINKBENCH_PATH + "/models"

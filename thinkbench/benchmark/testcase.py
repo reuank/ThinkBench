@@ -4,6 +4,7 @@ from benchmark.benchmark import Benchmark
 from constants import RANDOM_DATA_SAMPLES_SEED
 from dataset.dataset import Dataset
 from dataset.single_data_instance import Numbering, Permutation
+from utils.logger import Logger
 
 
 class TestCase:
@@ -57,15 +58,19 @@ class TestCase:
                 range(self.limit)]
 
     def get_info(self):
-        test_case_info = f"""=========== Running New Test Case ===========
-Dataset: {self.dataset.name}
-Limit: {self.limit}
-Random Samples: {self.n_random if self.n_random != -1 else 'None'}
-Random Seed: {self.random_seed if self.n_random != -1 else 'None'}
-Label Numbering: {self.label_numbering}
-Label Permutation: {self.label_permutation}
-Benchmark: {self.benchmark.name}  
-Use Chat Template: {self.use_chat_template}
-============================================="""
+        table = Logger.print_table(
+            headers=["Parameter", "Value"],
+            rows=[
+                ["Dataset", f"{self.dataset.name}"],
+                ["Limit", f"{self.limit}"],
+                ["Random Samples", f"{self.n_random if self.n_random != -1 else 'None'}"],
+                ["Random Seed", f"{self.random_seed if self.n_random != -1 else 'None'}"],
+                ["Label Numbering", f"{self.label_numbering}"],
+                ["Label Permutation", f"{self.label_permutation}"],
+                ["Benchmark", f"{self.benchmark.name}"],
+                ["Use Chat Template", f"{self.use_chat_template}"],
+            ],
+            print_out=False
+        )
 
-        return test_case_info
+        return table

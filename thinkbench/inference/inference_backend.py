@@ -16,6 +16,8 @@ from inference.message_history import MessageHistory
 from benchmark.prompt_chain import PromptChain, PromptCompletionStep, PromptTemplateStep, PromptTextStep
 from benchmark.testcase import TestCase
 from model_config.model_config import ModelConfig, QuantizationMethod
+from utils.env_loader import EnvReader
+from utils.logger import Logger
 from utils.registry import Registry
 from utils.timer import Timer
 
@@ -38,7 +40,7 @@ class InferenceBackend(ABC):
         if not os.path.isfile(local_path/model_filename):
             from huggingface_hub import hf_hub_download
 
-            print(f"Download model {model_filename}, as it does not yet exist in the model folder.")
+            Logger.info(f"Download model {model_filename}, as it does not yet exist in the model folder.")
             hf_hub_download(
                 repo_id=hf_repo,
                 filename=model_filename,
@@ -61,7 +63,10 @@ class InferenceBackend(ABC):
     def run_test_case(self, test_case: TestCase, comment: str) -> TestCaseResult:
         Timer.get_instance("test_case").start_over()
 
-        print(test_case.get_info())
+        Logger.info(Logger.print_seperator(print_out=False))
+        Logger.info("Test Case Parameters:")
+        Logger.info(test_case.get_info(), prefix="")
+        Logger.info(Logger.print_seperator(print_out=False))
 
         single_results: List[SingleBenchmarkResult] = self._run_test_case(
             test_case=test_case,
@@ -70,17 +75,11 @@ class InferenceBackend(ABC):
 
         metrics = test_case.benchmark.compute_metrics(single_results)
 
-        try:
-            hostname = os.environ.get("TB_HOSTNAME")
-            if not hostname:
-                raise KeyError
-        except KeyError:
-            print("Please specify a hostname in the .env file. Did you forger to source .env?")
-            hostname = ""
+        hostname = EnvReader.get("TB_HOSTNAME", "")
 
-        print("="*45)
+        Logger.print_seperator()
         Timer.get_instance("test_case").end()
-        print(f"Metrics: {metrics}.")
+        Logger.info(f"Metrics: {metrics}")
 
         repo = git.Repo(path=pathlib.Path(__file__).parent.resolve(), search_parent_directories=True)
         current_commit_hash = repo.head.object.hexsha[:8]
@@ -110,8 +109,6 @@ class InferenceBackend(ABC):
     def execute_prompt_chain(self, prompt_chain: PromptChain, single_data_instance: SingleDataInstance, use_chat_template: bool, additional_params: Dict[str, Any]) -> CompletionHistory:
         message_history = MessageHistory()
         completion_history = CompletionHistory()
-
-        # print(prompt_chain)
 
         for prompt_step in prompt_chain.steps:
             prompt_step_type = type(prompt_step)

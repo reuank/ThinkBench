@@ -4,12 +4,14 @@ import fire
 
 from benchmark.testcase import TestCase
 from benchmark.results import TestCaseResult
+from constants import LIBRARY_ROOT
 from dataset.dataset import Dataset
 from dataset.single_data_instance import Numbering, Permutation
 from inference.backends.llama_cpp_server_backend import LlamaCppServerInferenceBackend
 from inference.inference_backend import InferenceBackend
 from trace_analysis.trace_classifier import TraceClassifier
 from trace_analysis.trace_samples_storer import TraceSamplesStorer
+from utils.env_loader import EnvReader
 from utils.list_utils import ensure_list
 from utils.logger import Logger
 from utils.result_loader import ResultLoader
@@ -119,6 +121,7 @@ if __name__ == '__main__':
     from model_config.model_config import MODEL_CONFIG_REGISTRY
     from storage.storage_backend import STORAGE_BACKEND_REGISTRY
 
+    EnvReader.load_env_file(f"{LIBRARY_ROOT}/.env")
 
     def run_test_cli(
         models: str = "default",
