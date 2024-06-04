@@ -142,10 +142,11 @@ if __name__ == '__main__':
     def store_trace_samples_cli(
         cot_results_path: str,
         non_cot_results_path: str,
+        interactive: bool = False
     ):
         cot_results, non_cot_results = ResultLoader.load_two_runs(cot_results_path, non_cot_results_path)
         ResultLoader.ensure_reasoning_present(cot_results)
-        TraceSamplesStorer.store_trace_samples(cot_results, non_cot_results)
+        TraceSamplesStorer.store_trace_samples(cot_results, non_cot_results, interactive)
 
     def classify_traces_cli(
         cot_results_path: str,

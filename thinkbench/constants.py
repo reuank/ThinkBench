@@ -62,4 +62,4 @@ TRACE_SAMPLES_PER_RUN: int = 25
 SAMPLES_SEED: int = 5555
 
 # Storage options
-CSV_DELIMITER: str = ";"
+CSV_DELIMITER: str = ","
