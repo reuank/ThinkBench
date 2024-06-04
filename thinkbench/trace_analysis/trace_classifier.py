@@ -6,6 +6,9 @@ from string import Template
 from typing import List, Dict
 
 import nltk
+import sklearn
+import seaborn as sns
+from matplotlib import pyplot as plt
 
 from storage.backends.csv_file_storage import CsvFileStorage
 from utils.logger import Logger
@@ -19,6 +22,17 @@ class Category(Enum):
 
 
 class TraceClassifier:
+    @staticmethod
+    def is_category(value) -> bool:
+        try:
+            value = int(value)
+            for category in Category:
+                if category.value == value:
+                    return True
+            return False
+        except ValueError:
+            return False
+
     @staticmethod
     def get_model_choices(data: Dict) -> List[str]:
         return [single_result["model_choice"] for single_result in data["results"]]
@@ -281,7 +295,7 @@ class TraceClassifier:
                     "correct_answer": cot_result_row["correct_answer"],
                     "cot_choice": cot_result_row["model_choice"],
                     "non_cot_choice": non_cot_choices[cot_result_row_id],
-                    "category": 0,
+                    "automatic_category_id": 4,
                     "extracted_labels": ""
                 }
 
@@ -361,20 +375,38 @@ class TraceClassifier:
                 cot_uuid=classification_result['cot_uuid'],
                 non_cot_uuid=classification_result['non_cot_uuid']
             )
-
             manual_classifications = csv_file_storage.load_analysis_result(manual_classifications_filename)
+            manual_category_ids = [
+                int(manual_classification_row["manual_category_id"])
+                for manual_classification_row in manual_classifications
+            ]
+
+            automatic_category_ids = []
 
             total_manual_classifications = 0
             correct_automatic_classifications = 0
 
             for manual_classification_row in manual_classifications:
-                if manual_classification_row["manual_label_id"] != "":
+                if manual_classification_row["manual_category_id"] != "":
                     total_manual_classifications += 1
 
                     question_id = int(manual_classification_row["question_id"])
-                    corresponding_automatic_label_id = int(classification_result["result_rows"][question_id]["automatic_category_id"])
+                    automatic_category_ids.append(
+                        int(classification_result["result_rows"][question_id]["automatic_category_id"])
+                    )
 
-                    if int(manual_classification_row["manual_label_id"]) == corresponding_automatic_label_id:
+                    if int(manual_classification_row["manual_category_id"]) == automatic_category_ids[-1]:
                         correct_automatic_classifications += 1
 
             print(f"{total_manual_classifications=}, {correct_automatic_classifications=}")
+
+            labels = [category.value for category in Category]
+            conf_matrix = sklearn.metrics.confusion_matrix(manual_category_ids, automatic_category_ids, labels=labels)
+
+            plt.figure(figsize=(10, 7))
+            sns.heatmap(conf_matrix, annot=True, cmap='Blues', fmt='d', xticklabels=labels, yticklabels=labels, cbar=False)
+            plt.xlabel('Automatic Category')
+            plt.ylabel('Manual Category')
+            plt.title('Confusion Matrix')
+
+            plt.savefig(f'{model}_classification_confusion_matrix.pdf', format='pdf')
