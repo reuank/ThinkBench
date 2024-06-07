@@ -34,21 +34,21 @@ class StorageBackend(ABC):
             self.store_test_case_result(test_case_result)
 
     @staticmethod
-    def get_classifications_filename(model_name: str, cot_uuid: str, non_cot_uuid: str):
-        return StorageBackend.get_run_dependant_filename(model_name, cot_uuid, non_cot_uuid, "classifications", "csv")
+    def get_classifications_file_name(model_name: str, cot_uuid: str, non_cot_uuid: str):
+        return StorageBackend.get_run_dependant_file_name(model_name, cot_uuid, non_cot_uuid, "classifications", "csv")
 
     @staticmethod
-    def get_samples_filename(model_name: str, cot_uuid: str, non_cot_uuid: str):
-        return StorageBackend.get_run_dependant_filename(model_name, cot_uuid, non_cot_uuid, "samples", "csv")
+    def get_samples_file_name(model_name: str, cot_uuid: str, non_cot_uuid: str):
+        return StorageBackend.get_run_dependant_file_name(model_name, cot_uuid, non_cot_uuid, "samples", "csv")
 
     @staticmethod
-    def get_run_dependant_filename(model_name: str, cot_uuid: str, non_cot_uuid: str, suffix: str, extension: str):
-        filename = f"{model_name}" \
+    def get_run_dependant_file_name(model_name: str, cot_uuid: str, non_cot_uuid: str, suffix: str, extension: str):
+        file_name = f"{model_name}" \
                    f"_C-{cot_uuid[:8]}" \
                    f"_N-{non_cot_uuid[:8]}" \
                    f"_{suffix}.{extension}"
 
-        return filename
+        return file_name
 
 
 STORAGE_BACKEND_REGISTRY = Registry(

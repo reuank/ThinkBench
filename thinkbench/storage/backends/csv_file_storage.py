@@ -12,13 +12,13 @@ class CsvFileStorage(StorageBackend):
     def store_test_case_result(self, test_case_result: TestCaseResult):
         raise NotImplementedError
 
-    def store_analysis_result(self, headers: List, rows: List[List], filename: str = ""):
-        self.store_raw(headers, rows, self.analysis_path / filename)
+    def store_analysis_result(self, headers: List, rows: List[List], file_name: str = ""):
+        self.store_raw(headers, rows, self.analysis_path / file_name)
 
-    def load_analysis_result(self, filename: Union[str, Path]) -> List[Dict]:
-        file_path = self.analysis_path / filename
+    def load_analysis_result(self, file_name: Union[str, Path]) -> List[Dict]:
+        file_path = self.analysis_path / file_name
         if not file_path.exists() and not file_path.is_file():
-            raise ValueError(f"File {filename} does not exist.")
+            raise ValueError(f"File {file_name} does not exist.")
 
         with open(file_path, mode='r', newline='') as csvfile:
             reader = csv.DictReader(csvfile, delimiter=CSV_DELIMITER)

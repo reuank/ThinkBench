@@ -24,21 +24,21 @@ class RunStat(ABC):
     def get_question_ids_of_class(class_id: int, cot_result, non_cot_result):
         csv_file_storage = CsvFileStorage()
 
-        automatic_classifications_filename = csv_file_storage.get_classifications_filename(
-            model_name=cot_result['model'],
-            cot_uuid=cot_result['uuid'],
-            non_cot_uuid=non_cot_result['uuid']
+        automatic_classifications_file_name = csv_file_storage.get_classifications_file_name(
+            model_name=cot_result["model"],
+            cot_uuid=cot_result["uuid"],
+            non_cot_uuid=non_cot_result["uuid"]
         )
-        automatic_classifications = csv_file_storage.load_analysis_result(automatic_classifications_filename)
+        automatic_classification_file_rows = csv_file_storage.load_analysis_result(automatic_classifications_file_name)
 
         question_ids_of_class = []
-        for automatic_classification_row in automatic_classifications:
+        for automatic_classification_row in automatic_classification_file_rows:
             if class_id == -1:
                 question_ids_of_class.append(
                     int(automatic_classification_row["question_id"])
                 )
             else:
-                if class_id == int(automatic_classification_row["automatic_category_id"]):
+                if class_id == int(automatic_classification_row["automatic_class_id"]):
                     question_ids_of_class.append(
                         int(automatic_classification_row["question_id"])
                     )
@@ -78,7 +78,7 @@ class RunsMatchStat(RunStat):
             row_headers = ["Baseline Correct", "Baseline Incorrect"]
             column_headers = ["CoT Correct", "CoT Incorrect"]
 
-            Logger.print_header(f"Runs Match Stats for model {complete_result['model']}, category: {'all' if class_id == -1 else class_id}")
+            Logger.print_header(f"Runs Match Stats for model {complete_result['model']}, trace class: {'all' if class_id == -1 else class_id}")
             Logger.print_table(
                 rows=[[row_headers[i]] + RunsMatchStat.float_list_to_percent(row) for i, row in enumerate(relative_rows)],
                 headers=[""] + column_headers
@@ -170,7 +170,7 @@ class ClassAccuracy(RunStat):
 
             rows.append([model, non_cot_accuracy_in_class, cot_accuracy_in_class, ratio])
 
-        Logger.print_header(f"Category accuracy stats, category: {'all' if class_id == -1 else class_id}")
+        Logger.print_header(f"Trace class accuracy stats, trace class: {'all' if class_id == -1 else class_id}")
         Logger.print_table(
             rows=[RunStat.float_list_to_percent(row) for row in rows],
             headers=["Model", "Non CoT Accuracy", "CoT Accuracy", "Ratio"]
