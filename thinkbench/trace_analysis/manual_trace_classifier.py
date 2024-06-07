@@ -6,12 +6,13 @@ from typing import List, Dict, Union
 
 from constants import TRACE_SAMPLES_PER_RUN
 from storage.backends.csv_file_storage import CsvFileStorage
-from trace_analysis.trace_classifier import TraceClassifier, TraceClass
+from trace_analysis.automatic_trace_classifier import AutomaticTraceClassifier, TraceClass
+from trace_analysis.trace_classifier import TraceClassifier
 from utils.cli_interactions import Interaction
 from utils.logger import Logger
 
 
-class TraceSamplesStorer:
+class ManualTraceClassifier(TraceClassifier):
     @staticmethod
     def store_trace_samples(cot_results: List[Dict], non_cot_results: List[Dict], interactive: bool, override: bool):
         csv_file_storage: CsvFileStorage = CsvFileStorage()
@@ -53,7 +54,7 @@ class TraceSamplesStorer:
                 )
 
             if sample_again:
-                cot_result_with_samples = TraceSamplesStorer.add_samples_to_result(
+                cot_result_with_samples = ManualTraceClassifier.add_samples_to_result(
                     result=cot_result,
                     seed=cot_result["model"]
                 )
@@ -87,7 +88,7 @@ class TraceSamplesStorer:
                 )
 
         if interactive:
-            all_samples = TraceSamplesStorer.display_and_classify_texts(all_samples)
+            all_samples = ManualTraceClassifier.display_and_classify_texts(all_samples)
 
         for model, model_data in all_samples.items():
             sampled_models.append(model)
@@ -144,7 +145,7 @@ class TraceSamplesStorer:
                     pad_pos -= 1
                 elif key == curses.KEY_DOWN and pad_pos < len(wrapped_text) - max_y + 2:
                     pad_pos += 1
-                elif chr(key).isdigit() and TraceClassifier.is_trace_class(chr(key)):
+                elif chr(key).isdigit() and AutomaticTraceClassifier.is_trace_class(chr(key)):
                     return chr(key)
 
         def main(standard_screen):
@@ -167,7 +168,7 @@ class TraceSamplesStorer:
                         display_text += f"({trace_class[0]}) {trace_class[1].replace('_', ' ')}\n"
 
                     trace_class_id = ""
-                    while not TraceClassifier.is_trace_class(trace_class_id):
+                    while not AutomaticTraceClassifier.is_trace_class(trace_class_id):
                         trace_class_id = classify_text(standard_screen, display_text, total_sample_counter, total_samples)
                     all_samples[model]["sample_file_rows"][sample_row_index]["manual_class_id"] = trace_class_id
 

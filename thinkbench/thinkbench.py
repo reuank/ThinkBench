@@ -9,9 +9,10 @@ from dataset.dataset import Dataset
 from dataset.single_data_instance import Numbering, Permutation
 from inference.backends.llama_cpp_server_backend import LlamaCppServerInferenceBackend
 from inference.inference_backend import InferenceBackend
-from trace_analysis.run_stats import RunsMatchStat, ClassAccuracy
-from trace_analysis.trace_classifier import TraceClassifier, TraceClass
-from trace_analysis.trace_samples_storer import TraceSamplesStorer
+from trace_analysis.classification_evaluator import ClassificationEvaluator
+from trace_analysis.trace_stats import RunsMatchStat, ClassAccuracy
+from trace_analysis.automatic_trace_classifier import AutomaticTraceClassifier, TraceClass
+from trace_analysis.manual_trace_classifier import ManualTraceClassifier
 from utils.env_loader import EnvReader
 from utils.list_utils import ensure_list
 from utils.logger import Logger
@@ -146,15 +147,15 @@ def classify_traces_cli(
     ResultLoader.ensure_reasoning_present(cot_results)
 
     Logger.print_header("Manual Classification")
-    TraceSamplesStorer.store_trace_samples(cot_results, non_cot_results, interactive, override)
+    ManualTraceClassifier.store_trace_samples(cot_results, non_cot_results, interactive, override)
 
     Logger.print_header("Automatic Classification")
-    automatic_classifications = TraceClassifier.classify_traces(cot_results, non_cot_results)
-    TraceClassifier.store_classification_results(automatic_classifications)
+    automatic_classifications = AutomaticTraceClassifier.classify_traces(cot_results, non_cot_results)
+    AutomaticTraceClassifier.store_classification_results(automatic_classifications)
 
     if evaluate:
         Logger.print_header("Classification Evaluation")
-        TraceClassifier.evaluate_classifications(automatic_classifications)
+        ClassificationEvaluator.evaluate_classifications(automatic_classifications)
 
 
 def analyze_trace_classes_cli(
