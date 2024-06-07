@@ -1,7 +1,9 @@
 import json
 import re
 import string
+import time
 from enum import Enum
+from pathlib import Path
 from string import Template
 from typing import List, Dict
 
@@ -9,8 +11,10 @@ import nltk
 import sklearn
 import seaborn as sns
 from matplotlib import pyplot as plt
+from tqdm import tqdm
 
 from storage.backends.csv_file_storage import CsvFileStorage
+from utils.cli_interactions import Interaction
 from utils.logger import Logger
 
 
@@ -19,6 +23,10 @@ class Category(Enum):
     COT_TRACE_LABEL_UNAMBIGUOUS_NO_MATCH = 2
     COT_TRACE_LABEL_AMBIGUOUS = 3
     NO_COT_TRACE_LABEL = 4
+
+    @staticmethod
+    def get_ids():
+        return [category.value for category in Category]
 
 
 class TraceClassifier:
@@ -96,7 +104,7 @@ class TraceClassifier:
     def classify_traces(all_cot_results: List[Dict], all_non_cot_results: List[Dict]) -> Dict[str, Dict]:
         classification_results: Dict[str, Dict] = {}
 
-        for cot_result_id, cot_result in enumerate(all_cot_results):
+        for cot_result_id, cot_result in enumerate(tqdm(all_cot_results, desc="Running automatic trace classification.")):
             non_cot_result = all_non_cot_results[cot_result_id]
             non_cot_choices = TraceClassifier.get_model_choices(non_cot_result)
 
@@ -349,25 +357,46 @@ class TraceClassifier:
     @staticmethod
     def store_classification_results(classification_results: Dict[str, Dict]):
         csv_file_storage = CsvFileStorage()
+        written_filenames = []
 
         for model, classification_result in classification_results.items():
+            override = True
+
             classifications_filename = csv_file_storage.get_classifications_filename(
                 model_name=model,
                 cot_uuid=classification_result['cot_uuid'],
                 non_cot_uuid=classification_result['non_cot_uuid']
             )
 
-            csv_file_storage.store_analysis_result(
-                headers=classification_result["result_rows"][0].keys(),
-                rows=[row.values() for row in classification_result["result_rows"]],
-                filename=classifications_filename
-            )
+            classifications_file_path: Path = csv_file_storage.analysis_path / classifications_filename
+            if classifications_file_path.is_file():
+                override = Interaction.query_yes_no(
+                    question=f"A classification file {classifications_filename} already exists for model {model}."
+                             f"\nDo you want to override it?",
+                    default="yes"
+                )
 
-        Logger.info(f"Classification files were written to {csv_file_storage.analysis_path}")
+            if override:
+                csv_file_storage.store_analysis_result(
+                    headers=classification_result["result_rows"][0].keys(),
+                    rows=[row.values() for row in classification_result["result_rows"]],
+                    filename=classifications_filename
+                )
+
+                written_filenames.append(classifications_filename)
+
+        if written_filenames:
+            Logger.info(f"Automatic classification files were written to {csv_file_storage.analysis_path}")
 
     @staticmethod
     def evaluate_classifications(classification_results: Dict[str, Dict]):
         csv_file_storage = CsvFileStorage()
+        accuracy_evaluation_rows = []
+        evaluated_models = []
+        all_classifications = {
+            "all_manual_category_ids": [],
+            "all_automatic_category_ids": []
+        }
 
         for model, classification_result in classification_results.items():
             manual_classifications_filename = csv_file_storage.get_samples_filename(
@@ -376,37 +405,86 @@ class TraceClassifier:
                 non_cot_uuid=classification_result['non_cot_uuid']
             )
             manual_classifications = csv_file_storage.load_analysis_result(manual_classifications_filename)
-            manual_category_ids = [
-                int(manual_classification_row["manual_category_id"])
-                for manual_classification_row in manual_classifications
-            ]
 
+            manual_category_ids = []
             automatic_category_ids = []
 
-            total_manual_classifications = 0
-            correct_automatic_classifications = 0
-
             for manual_classification_row in manual_classifications:
-                if manual_classification_row["manual_category_id"] != "":
-                    total_manual_classifications += 1
+                manual_category_ids.append(
+                    int(manual_classification_row["manual_category_id"])
+                )
 
+                if manual_category_ids[-1] != 0 and manual_category_ids[-1] != "":
                     question_id = int(manual_classification_row["question_id"])
                     automatic_category_ids.append(
                         int(classification_result["result_rows"][question_id]["automatic_category_id"])
                     )
 
-                    if int(manual_classification_row["manual_category_id"]) == automatic_category_ids[-1]:
-                        correct_automatic_classifications += 1
+            num_unlabeled = len(manual_classifications) - len(manual_category_ids)
 
-            print(f"{total_manual_classifications=}, {correct_automatic_classifications=}")
+            if num_unlabeled > 0:
+                Logger.info(f"There are {num_unlabeled} unlabeled samples in the manual classification file {manual_classifications_filename}. "
+                            f"Please make sure to manually label all samples to run an evaluation.")
+            else:
+                accuracy = TraceClassifier.calculate_percentage_match(manual_category_ids, automatic_category_ids)
+                accuracy_evaluation_rows.append([model, len(manual_category_ids), f"{accuracy:.2f}%"])
 
-            labels = [category.value for category in Category]
-            conf_matrix = sklearn.metrics.confusion_matrix(manual_category_ids, automatic_category_ids, labels=labels)
+                conf_matrix = sklearn.metrics.confusion_matrix(manual_category_ids, automatic_category_ids, labels=Category.get_ids())
+                plt.figure(figsize=(10, 7))
+                sns.heatmap(conf_matrix, annot=True, cmap='Blues', fmt='d', xticklabels=Category.get_ids(), yticklabels=Category.get_ids(), cbar=False)
+                plt.xlabel('Automatic Category')
+                plt.ylabel('Manual Category')
+                plt.title(f'Confusion Matrix for model {model}')
 
-            plt.figure(figsize=(10, 7))
-            sns.heatmap(conf_matrix, annot=True, cmap='Blues', fmt='d', xticklabels=labels, yticklabels=labels, cbar=False)
-            plt.xlabel('Automatic Category')
-            plt.ylabel('Manual Category')
-            plt.title('Confusion Matrix')
+                # TODO: Get analysis path from env, not from storage
+                conf_matrix_filename = csv_file_storage.get_run_dependant_filename(
+                    model_name=model,
+                    cot_uuid=manual_classifications[0]["cot_uuid"],
+                    non_cot_uuid=manual_classifications[0]["non_cot_uuid"],
+                    suffix="classification_confusion_matrix",
+                    extension="pdf"
+                )
+                plt.savefig(csv_file_storage.analysis_path / conf_matrix_filename, format='pdf')
 
-            plt.savefig(f'{model}_classification_confusion_matrix.pdf', format='pdf')
+                all_classifications["all_manual_category_ids"].extend(manual_category_ids)
+                all_classifications["all_automatic_category_ids"].extend(automatic_category_ids)
+                evaluated_models.append(model)
+
+        conf_matrix = sklearn.metrics.confusion_matrix(all_classifications["all_manual_category_ids"], all_classifications["all_automatic_category_ids"], labels=Category.get_ids())
+        plt.figure(figsize=(10, 7))
+        sns.heatmap(conf_matrix, annot=True, cmap='Blues', fmt='d', xticklabels=Category.get_ids(), yticklabels=Category.get_ids(), cbar=False)
+        plt.xlabel('Automatic Category')
+        plt.ylabel('Manual Category')
+        plt.title(f'Confusion Matrix for all models')
+
+        # TODO: Get analysis path from env, not from storage
+        conf_matrix_filename = csv_file_storage.get_run_dependant_filename(
+            model_name="all",
+            cot_uuid=str(int(time.time() / 100)),
+            non_cot_uuid="###",
+            suffix="classification_confusion_matrix",
+            extension="pdf"
+        )
+        plt.savefig(csv_file_storage.analysis_path / conf_matrix_filename, format='pdf')
+
+        overall_accuracy = TraceClassifier.calculate_percentage_match(all_classifications["all_manual_category_ids"], all_classifications["all_automatic_category_ids"])
+        Logger.info(f"Overall classification performance: {overall_accuracy:.2f}%")
+
+        Logger.print_table(rows=accuracy_evaluation_rows, headers=["Model", "Total Manual Classifications", "Accuracy of Automatic Classification"])
+        Logger.info(f"Confusion matrices for models {', '.join(evaluated_models)} were written to {csv_file_storage.analysis_path}.")
+
+    @staticmethod
+    def calculate_percentage_match(array_a, array_b):
+        if len(array_a) != len(array_b):
+            raise ValueError("The arrays need to have the same length.")
+
+        match_count = 0
+        total_elements = len(array_a)
+
+        for i in range(total_elements):
+            if array_a[i] == array_b[i]:
+                match_count += 1
+
+        percentage_match = (match_count / total_elements) * 100
+
+        return percentage_match

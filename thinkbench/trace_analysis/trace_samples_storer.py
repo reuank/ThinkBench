@@ -1,83 +1,126 @@
 import curses
 import random
-from typing import List, Dict
+import textwrap
+from pathlib import Path
+from typing import List, Dict, Union
 
 from constants import TRACE_SAMPLES_PER_RUN
 from storage.backends.csv_file_storage import CsvFileStorage
 from trace_analysis.trace_analysis import Category
 from trace_analysis.trace_classifier import TraceClassifier
+from utils.cli_interactions import Interaction
 from utils.logger import Logger
 
 
 class TraceSamplesStorer:
     @staticmethod
-    def store_trace_samples(cot_results: List[Dict], non_cot_results: List[Dict], interactive: bool):
+    def store_trace_samples(cot_results: List[Dict], non_cot_results: List[Dict], interactive: bool, override: bool):
         csv_file_storage: CsvFileStorage = CsvFileStorage()
         all_samples: Dict = {}
+        sampled_models = []
 
         for cot_result_id, cot_result in enumerate(cot_results):
+            sample_again = True
             non_cot_result = non_cot_results[cot_result_id]
+
+            samples_file_name = csv_file_storage.get_samples_filename(
+                model_name=cot_result["model"],
+                cot_uuid=cot_result['uuid'],
+                non_cot_uuid=non_cot_result['uuid'],
+            )
 
             non_cot_model_choices = [single_result["model_choice"] for single_result in non_cot_result["results"]]
             cot_model_choices = [single_result["model_choice"] for single_result in cot_result["results"]]
 
-            cot_result_with_samples = TraceSamplesStorer.add_samples_to_result(
-                result=cot_result,
-                seed=cot_result["model"]
-            )
+            samples_file_path: Path = csv_file_storage.analysis_path / samples_file_name
+            if samples_file_path.is_file() and not override:
+                # TODO: Add possibility to continue labeling process
+                manual_classifications = csv_file_storage.load_analysis_result(samples_file_path)
+                manual_category_ids = [
+                    0 if manual_classification_row["manual_category_id"] == ""
+                    else int(manual_classification_row["manual_category_id"])
+                    for manual_classification_row in manual_classifications
+                ]
 
-            sample_rows = []
+                num_labeled = sum(
+                    manual_category_id != 0 and manual_category_id != ""
+                    for manual_category_id in manual_category_ids
+                )
 
-            for cot_sample_result_row in cot_result_with_samples["sample_results"]:
-                if "reasoning" not in cot_sample_result_row["completions"][0].keys():
-                    raise ValueError("File does not contain")
+                sample_again = Interaction.query_yes_no(
+                    question=f"A samples file {samples_file_name} already exists for model {cot_result['model']}."
+                             f"\nIt contains {num_labeled} labeled traces. Do you want to continue?",
+                    default="no"
+                )
 
-                labels_match = non_cot_model_choices[cot_sample_result_row["question_id"]] == cot_model_choices[cot_sample_result_row["question_id"]]
+            if sample_again:
+                cot_result_with_samples = TraceSamplesStorer.add_samples_to_result(
+                    result=cot_result,
+                    seed=cot_result["model"]
+                )
 
-                sample_rows.append({
-                    "cot_uuid": cot_result['uuid'],
-                    "non_cot_uuid": non_cot_result['uuid'],
-                    "question_id": cot_sample_result_row["question_id"],
-                    "reasoning": cot_sample_result_row["completions"][0]["reasoning"]["text"].strip(),
-                    "labels_match": labels_match,
-                    "manual_category_id": ""
-                })
+                sample_rows = []
 
-            all_samples.update({cot_result["model"]: sample_rows})
+                for cot_sample_result_row in cot_result_with_samples["sample_results"]:
+                    if "reasoning" not in cot_sample_result_row["completions"][0].keys():
+                        raise ValueError("CoT row does not contain a reasoning trace.")
+
+                    labels_match = non_cot_model_choices[cot_sample_result_row["question_id"]] == cot_model_choices[cot_sample_result_row["question_id"]]
+
+                    sample_rows.append({
+                        "cot_uuid": cot_result['uuid'],
+                        "non_cot_uuid": non_cot_result['uuid'],
+                        "question_id": cot_sample_result_row["question_id"],
+                        "reasoning": cot_sample_result_row["completions"][0]["reasoning"]["text"].strip(),
+                        "labels_match": labels_match,
+                        "manual_category_id": 0
+                    })
+
+                all_samples.update(
+                    {
+                        cot_result["model"]: {
+                            "sample_rows": sample_rows,
+                            "filename": samples_file_name
+                        }
+                    }
+                )
 
         if interactive:
             all_samples = TraceSamplesStorer.display_and_classify_texts(all_samples)
 
-        for model, sample_rows in all_samples.items():
-            samples_file_name = csv_file_storage.get_samples_filename(
-                model_name=model,
-                cot_uuid=sample_rows[0]["cot_uuid"],
-                non_cot_uuid=sample_rows[0]["non_cot_uuid"],
-            )
-
+        for model, model_data in all_samples.items():
+            sampled_models.append(model)
             csv_file_storage.store_analysis_result(
                 headers=["cot_uuid", "non_cot_uuid", "question_id", "reasoning", "labels_match", "manual_category_id"],
-                rows=[list(sample_row.values()) for sample_row in sample_rows],
-                filename=samples_file_name
+                rows=[list(sample_row.values()) for sample_row in model_data["sample_rows"]],
+                filename=model_data["filename"]
             )
 
-        Logger.info(f"Sample files were written to {csv_file_storage.analysis_path}")
-
+        if len(all_samples) > 0:
+            Logger.info(f"Manual classification files for models {', '.join(sampled_models)} were written to {csv_file_storage.analysis_path}.")
 
     @staticmethod
-    def display_and_classify_texts(all_samples: Dict[str, List[Dict]]) -> Dict[str, List[Dict]]:
+    def display_and_classify_texts(
+            all_samples: Dict[str, Dict[str, Union[str, List[Dict]]]]
+    ) -> Dict[str, Dict[str, Union[str, List[Dict]]]]:
         categories = [[category.value, category.name] for category in Category]
 
         def classify_text(standard_screen, text, sample_index, total_samples):
             max_y, max_x = standard_screen.getmaxyx()
 
-            # Create a new pad
-            lines = text.split('\n')
-            pad = curses.newpad(max(len(lines), max_y), max_x)
+            wrapped_text = []
+            for line in text.split('\n'):
+                wrapped_lines = textwrap.wrap(line, width=max_x)
+                if not wrapped_lines:
+                    wrapped_text.append("")  # Preserve blank lines
+                else:
+                    wrapped_text.extend(wrapped_lines)
+
+            pad = curses.newpad(max(len(wrapped_text), max_y), max_x)
             pad_pos = 0
 
             # Write the text to the pad
-            for i, line in enumerate(lines):
+            for i, line in enumerate(wrapped_text):
                 pad.addstr(i, 0, line)
 
             #pad.refresh(pad_pos, 0, 0, 0, max_y - 2, max_x - 1)
@@ -98,7 +141,7 @@ class TraceSamplesStorer:
                 # Handle scrolling
                 if key == curses.KEY_UP and pad_pos > 0:
                     pad_pos -= 1
-                elif key == curses.KEY_DOWN and pad_pos < len(lines) - max_y + 2:
+                elif key == curses.KEY_DOWN and pad_pos < len(wrapped_text) - max_y + 2:
                     pad_pos += 1
                 elif chr(key).isdigit() and TraceClassifier.is_category(chr(key)):
                     return chr(key)
@@ -106,10 +149,11 @@ class TraceSamplesStorer:
         def main(standard_screen):
             curses.curs_set(0)  # Hide the cursor
             standard_screen.keypad(True)  # Enable keypad mode
-            total_samples = sum(len(sample_rows) for sample_rows in all_samples.values())
+            all_sample_rows = [model_data["sample_rows"] for model, model_data in all_samples.items()]
+            total_samples = sum(len(sample_rows) for sample_rows in all_sample_rows)
             total_sample_counter = 0
-            for model, sample_rows in all_samples.items():
-                for sample_row_index, sample_row in enumerate(sample_rows):
+            for model, model_data in all_samples.items():
+                for sample_row_index, sample_row in enumerate(model_data["sample_rows"]):
                     total_sample_counter += 1
                     display_text = f"{Logger.print_header('REASONING', False)}\n" \
                                    f"{sample_row['reasoning'].strip()}\n\n"
@@ -124,7 +168,7 @@ class TraceSamplesStorer:
                     label_id = ""
                     while not TraceClassifier.is_category(label_id):
                         label_id = classify_text(standard_screen, display_text, total_sample_counter, total_samples)
-                    all_samples[model][sample_row_index]["manual_category_id"] = label_id
+                    all_samples[model]["sample_rows"][sample_row_index]["manual_category_id"] = label_id
 
         try:
             curses.wrapper(main)

@@ -9,7 +9,8 @@ N_SERVER_SLOTS: int = 1
 # Logging options
 LOG_INFO: bool = True
 LOG_ERROR: bool = True
-LOGGER_PREFIX = "##### "
+LOGGER_PREFIX: str = "##### "
+TABLE_FORMAT: str = "outline"  #"latex"  # outline
 TIMER_VERBOSE: bool = False
 INFERENCE_BACKEND_VERBOSE: bool = False
 PRINT_SEPARATOR_LENGTH: int = 50

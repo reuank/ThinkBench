@@ -45,7 +45,7 @@ class ResultLoader:
     def load_two_runs(
             first_result_files_path: Union[Path, str],
             second_result_files_path: Union[Path, str]
-    ) -> (List[str], List[Dict], List[Dict]):
+    ) -> (List[Dict], List[Dict]):
         first_results_data = ResultLoader.load_results(first_result_files_path)
         second_results_data = ResultLoader.load_results(second_result_files_path)
 

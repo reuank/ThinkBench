@@ -4,7 +4,7 @@ from typing import List
 from tabulate import tabulate
 
 from benchmark.results import TestCaseResult
-from constants import PRINT_SEPARATOR, PRINT_SEPARATOR_LENGTH, LOG_INFO, LOG_ERROR, LOGGER_PREFIX
+from constants import PRINT_SEPARATOR, PRINT_SEPARATOR_LENGTH, LOG_INFO, LOG_ERROR, LOGGER_PREFIX, TABLE_FORMAT
 
 
 class Logger:
@@ -49,7 +49,7 @@ class Logger:
         Logger.print_table(table_rows, ["Model", "Accuracy (%)", "Execution time"])
 
     @staticmethod
-    def print_table(rows: List, headers: List, tablefmt: str = "outline", print_out: bool = True):
+    def print_table(rows: List, headers: List, tablefmt: str = TABLE_FORMAT, print_out: bool = True):
         table = tabulate(tabular_data=rows, headers=headers, tablefmt=tablefmt)
 
         if print_out:

@@ -9,7 +9,8 @@ from dataset.dataset import Dataset
 from dataset.single_data_instance import Numbering, Permutation
 from inference.backends.llama_cpp_server_backend import LlamaCppServerInferenceBackend
 from inference.inference_backend import InferenceBackend
-from trace_analysis.trace_classifier import TraceClassifier
+from trace_analysis.run_stats import RunsMatchStat, ClassAccuracy
+from trace_analysis.trace_classifier import TraceClassifier, Category
 from trace_analysis.trace_samples_storer import TraceSamplesStorer
 from utils.env_loader import EnvReader
 from utils.list_utils import ensure_list
@@ -142,32 +143,53 @@ if __name__ == '__main__':
         )
         ThinkBench.run_test(arguments)
 
-    def store_trace_samples_cli(
-        cot_results_path: str,
-        non_cot_results_path: str,
-        interactive: bool = False
-    ):
-        cot_results, non_cot_results = ResultLoader.load_two_runs(cot_results_path, non_cot_results_path)
-        ResultLoader.ensure_reasoning_present(cot_results)
-        TraceSamplesStorer.store_trace_samples(cot_results, non_cot_results, interactive)
-
     def classify_traces_cli(
         cot_results_path: str,
         non_cot_results_path: str,
-        evaluate: bool = False
+        interactive: bool = True,
+        evaluate: bool = True,
+        override: bool = False
     ):
         cot_results, non_cot_results = ResultLoader.load_two_runs(cot_results_path, non_cot_results_path)
         ResultLoader.ensure_reasoning_present(cot_results)
-        classifications = TraceClassifier.classify_traces(cot_results, non_cot_results)
-        TraceClassifier.store_classification_results(classifications)
+
+        Logger.print_header("Manual Classification")
+        TraceSamplesStorer.store_trace_samples(cot_results, non_cot_results, interactive, override)
+
+        Logger.print_header("Automatic Classification")
+        automatic_classifications = TraceClassifier.classify_traces(cot_results, non_cot_results)
+        TraceClassifier.store_classification_results(automatic_classifications)
 
         if evaluate:
-            TraceClassifier.evaluate_classifications(classifications)
+            Logger.print_header("Classification Evaluation")
+            TraceClassifier.evaluate_classifications(automatic_classifications)
 
+    def analyze_trace_classes_cli(
+            cot_results_path: str,
+            non_cot_results_path: str,
+            class_accuracy: bool = False,
+            runs_match: bool = False,
+            class_id: int = -1
+    ):
+        if class_id != -1 and class_id not in Category.get_ids():
+            Logger.error(f"Class ID {class_id} does not exist. Computing stats for all categories instead.")
+            class_id = -1
+
+        cot_results, non_cot_results = ResultLoader.load_two_runs(cot_results_path, non_cot_results_path)
+        ResultLoader.ensure_reasoning_present(cot_results)
+
+        if class_accuracy:
+            ClassAccuracy.compute_all(cot_results, non_cot_results, class_id)
+
+        if runs_match:
+            RunsMatchStat.compute_all(cot_results, non_cot_results, class_id)
+
+        if not class_accuracy and not runs_match:
+            Logger.info("Please select a metric to compute.")
 
 
     fire.Fire({
         'run-test': run_test_cli,
-        'store-trace-samples': store_trace_samples_cli,
-        'classify-traces': classify_traces_cli
+        'classify-traces': classify_traces_cli,
+        'analyze-classes': analyze_trace_classes_cli,
     })

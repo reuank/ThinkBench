@@ -1,10 +1,11 @@
 import csv
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Union
 
 from benchmark.results import TestCaseResult
 from constants import CSV_DELIMITER
 from storage.storage_backend import StorageBackend
+from utils.logger import Logger
 
 
 class CsvFileStorage(StorageBackend):
@@ -12,11 +13,14 @@ class CsvFileStorage(StorageBackend):
         raise NotImplementedError
 
     def store_analysis_result(self, headers: List, rows: List[List], filename: str = ""):
-        # TODO: Confirm before overriding file
         self.store_raw(headers, rows, self.analysis_path / filename)
 
-    def load_analysis_result(self, filename: str) -> List[Dict]:
-        with open(self.analysis_path / filename, mode='r', newline='') as csvfile:
+    def load_analysis_result(self, filename: Union[str, Path]) -> List[Dict]:
+        file_path = self.analysis_path / filename
+        if not file_path.exists() and not file_path.is_file():
+            raise ValueError(f"File {filename} does not exist.")
+
+        with open(file_path, mode='r', newline='') as csvfile:
             reader = csv.DictReader(csvfile, delimiter=CSV_DELIMITER)
             data = [row for row in reader]
 
@@ -30,4 +34,4 @@ class CsvFileStorage(StorageBackend):
             csvwriter.writerows(rows)
 
         if print_path:
-            print(f"File {file_path.name} was written to folder {file_path.parent}.")
+            Logger.info(f"File {file_path.name} was written to folder {file_path.parent}.")
