@@ -18,11 +18,11 @@ from utils.cli_interactions import Interaction
 from utils.logger import Logger
 
 
-class Category(Enum):
-    COT_TRACE_LABEL_UNAMBIGUOUS_MATCH = 1
-    COT_TRACE_LABEL_UNAMBIGUOUS_NO_MATCH = 2
-    COT_TRACE_LABEL_AMBIGUOUS = 3
-    NO_COT_TRACE_LABEL = 4
+class TraceClass(Enum):
+    TRACE_LABEL_UNAMBIGUOUS_EXTRACTION_SUCCEEDED = 1
+    TRACE_LABEL_UNAMBIGUOUS_EXTRACTION_FAILED = 2
+    TRACE_LABEL_AMBIGUOUS = 3
+    NO_TRACE_LABEL = 4
 
     @staticmethod
     def get_ids():

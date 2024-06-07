@@ -64,14 +64,16 @@ class TraceSamplesStorer:
                     if "reasoning" not in cot_sample_result_row["completions"][0].keys():
                         raise ValueError("CoT row does not contain a reasoning trace.")
 
-                    labels_match = non_cot_model_choices[cot_sample_result_row["question_id"]] == cot_model_choices[cot_sample_result_row["question_id"]]
+                    runs_match = non_cot_model_choices[cot_sample_result_row["question_id"]] == cot_model_choices[cot_sample_result_row["question_id"]]
+                    model_choice = cot_model_choices[cot_sample_result_row["question_id"]]
 
                     sample_file_rows.append({
                         "cot_uuid": cot_result["uuid"],
                         "non_cot_uuid": non_cot_result["uuid"],
                         "question_id": cot_sample_result_row["question_id"],
                         "reasoning": cot_sample_result_row["completions"][0]["reasoning"]["text"].strip(),
-                        "labels_match": labels_match,
+                        "model_choice": model_choice,
+                        # "runs_match": runs_match,
                         "manual_class_id": 0
                     })
 
@@ -90,9 +92,7 @@ class TraceSamplesStorer:
         for model, model_data in all_samples.items():
             sampled_models.append(model)
             csv_file_storage.store_analysis_result(
-                headers=["cot_uuid", "non_cot_uuid", "question_id", "reasoning", "labels_match", "manual_category_id"],
-                rows=[list(sample_row.values()) for sample_row in model_data["sample_rows"]],
-                filename=model_data["filename"]
+                headers=["cot_uuid", "non_cot_uuid", "question_id", "reasoning", "model_choice", "manual_class_id"],
                 rows=[list(sample_row.values()) for sample_row in model_data["sample_file_rows"]],
                 file_name=model_data["file_name"]
             )
@@ -159,8 +159,8 @@ class TraceSamplesStorer:
                     display_text = f"{Logger.print_header('REASONING', False)}\n" \
                                    f"{sample_row['reasoning'].strip()}\n\n"
 
-                    display_text += f"{Logger.print_header('LABELS MATCH', False)}\n" \
-                                    f"{sample_row['labels_match']}\n\n"
+                    display_text += f"{Logger.print_header('COT MODEL CHOICE', False)}\n" \
+                                    f"{sample_row['model_choice']}\n\n"
 
                     display_text += f"{Logger.print_header('TRACE CLASSES', False)}\n"
                     for trace_class in trace_classes:
