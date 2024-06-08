@@ -4,6 +4,7 @@ from typing import List
 
 from benchmark.results import TestCaseResult
 from constants import DEFAULT_OUTPUT_PATH
+from trace_analysis.classification.classification_result import ClassificationResult
 from utils.env_loader import EnvReader
 from utils.registry import Registry
 
@@ -29,24 +30,34 @@ class StorageBackend(ABC):
     def store_test_case_result(self, test_case_result: TestCaseResult):
         raise NotImplementedError
 
+    @abstractmethod
+    def store_classification_result(self, classification_result: ClassificationResult):
+        raise NotImplementedError
+
     def store_multiple_test_case_results(self, test_case_results: List[TestCaseResult]):
         for test_case_result in test_case_results:
             self.store_test_case_result(test_case_result)
 
-    @staticmethod
-    def get_classifications_file_name(model_name: str, cot_uuid: str, non_cot_uuid: str):
-        return StorageBackend.get_run_dependant_file_name(model_name, cot_uuid, non_cot_uuid, "classifications", "csv")
+    def store_multiple_classification_results(self, classification_results: List[ClassificationResult]):
+        for classification_result in classification_results:
+            self.store_classification_result(classification_result)
 
     @staticmethod
-    def get_samples_file_name(model_name: str, cot_uuid: str, non_cot_uuid: str):
-        return StorageBackend.get_run_dependant_file_name(model_name, cot_uuid, non_cot_uuid, "samples", "csv")
-
-    @staticmethod
-    def get_run_dependant_file_name(model_name: str, cot_uuid: str, non_cot_uuid: str, suffix: str, extension: str):
+    def get_run_dependent_file_name(
+            model_name: str,
+            benchmark_name: str,
+            dataset_name: str,
+            cot_uuid: str,
+            non_cot_uuid: str,
+            suffix: str,
+            extension: str
+    ):
         file_name = f"{model_name}" \
-                   f"_C-{cot_uuid[:8]}" \
-                   f"_N-{non_cot_uuid[:8]}" \
-                   f"_{suffix}.{extension}"
+                    f"_{benchmark_name}" \
+                    f"_{dataset_name}" \
+                    f"_C-{cot_uuid}" \
+                    f"_N-{non_cot_uuid}" \
+                    f"_{suffix}.{extension}"
 
         return file_name
 

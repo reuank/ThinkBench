@@ -137,6 +137,9 @@ class CompletionHistory:
 
         return texts
 
+    def get_text(self, step_name: str):
+        return self.completions[step_name].completion_result.get_text()
+
     def to_dict(self) -> Dict[str, Dict[str, str | Dict]]:
         completions_dict: Dict[str, Dict[str, str | Dict]] = {}
 

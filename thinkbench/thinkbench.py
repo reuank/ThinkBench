@@ -9,10 +9,11 @@ from dataset.dataset import Dataset
 from dataset.single_data_instance import Numbering, Permutation
 from inference.backends.llama_cpp_server_backend import LlamaCppServerInferenceBackend
 from inference.inference_backend import InferenceBackend
-from trace_analysis.classification_evaluator import ClassificationEvaluator
-from trace_analysis.trace_stats import RunsMatchStat, ClassAccuracy
-from trace_analysis.automatic_trace_classifier import AutomaticTraceClassifier, TraceClass
-from trace_analysis.manual_trace_classifier import ManualTraceClassifier
+from trace_analysis.classification.classification_evaluator import ClassificationEvaluator
+from trace_analysis.classification.automatic_trace_classifier import AutomaticTraceClassifier, TraceClass
+from trace_analysis.classification.manual_trace_classifier import ManualTraceClassifier
+from trace_analysis.statistics.class_accuracy import ClassAccuracy
+from trace_analysis.statistics.runs_match import RunsMatch
 from utils.env_loader import EnvReader
 from utils.list_utils import ensure_list
 from utils.logger import Logger
@@ -139,23 +140,31 @@ def run_test_cli(
 def classify_traces_cli(
     cot_results_path: str,
     non_cot_results_path: str,
-    interactive: bool = True,
     evaluate: bool = True,
     override: bool = False
 ):
-    cot_results, non_cot_results = ResultLoader.load_two_runs(cot_results_path, non_cot_results_path)
-    ResultLoader.ensure_reasoning_present(cot_results)
+    cot_test_case_results, non_cot_test_case_results = ResultLoader.load_two_runs(cot_results_path, non_cot_results_path)
+    ResultLoader.ensure_reasoning_present(cot_test_case_results)
 
     Logger.print_header("Manual Classification")
-    ManualTraceClassifier.store_trace_samples(cot_results, non_cot_results, interactive, override)
+    manual_classifications = ManualTraceClassifier.classify_traces(
+        cot_test_case_results=cot_test_case_results,
+        non_cot_test_case_results=non_cot_test_case_results,
+        override=override
+    )
+    ManualTraceClassifier.store_classification_results(manual_classifications)
 
     Logger.print_header("Automatic Classification")
-    automatic_classifications = AutomaticTraceClassifier.classify_traces(cot_results, non_cot_results)
-    AutomaticTraceClassifier.store_classification_results(automatic_classifications)
+    complete_classifications = AutomaticTraceClassifier.classify_traces(
+        cot_test_case_results=cot_test_case_results,
+        non_cot_test_case_results=non_cot_test_case_results,
+        override=override
+    )
+    AutomaticTraceClassifier.store_classification_results(complete_classifications)
 
     if evaluate:
         Logger.print_header("Classification Evaluation")
-        ClassificationEvaluator.evaluate_classifications(automatic_classifications)
+        ClassificationEvaluator.evaluate_classifications(complete_classifications)
 
 
 def analyze_trace_classes_cli(
@@ -169,14 +178,14 @@ def analyze_trace_classes_cli(
         Logger.error(f"Class ID {class_id} does not exist. Computing stats for all categories instead.")
         class_id = -1
 
-    cot_results, non_cot_results = ResultLoader.load_two_runs(cot_results_path, non_cot_results_path)
-    ResultLoader.ensure_reasoning_present(cot_results)
+    cot_test_case_results, non_cot_test_case_results = ResultLoader.load_two_runs(cot_results_path, non_cot_results_path)
+    ResultLoader.ensure_reasoning_present(cot_test_case_results)
 
     if class_accuracy:
-        ClassAccuracy.compute_all(cot_results, non_cot_results, class_id)
+        ClassAccuracy.compute_all(cot_test_case_results, non_cot_test_case_results, class_id)
 
     if runs_match:
-        RunsMatchStat.compute_all(cot_results, non_cot_results, class_id)
+        RunsMatch.compute_all(cot_test_case_results, non_cot_test_case_results, class_id)
 
     if not class_accuracy and not runs_match:
         Logger.info("Please select a metric to compute.")

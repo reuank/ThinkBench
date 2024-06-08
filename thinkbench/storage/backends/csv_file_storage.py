@@ -5,10 +5,14 @@ from typing import List, Dict, Union
 from benchmark.results import TestCaseResult
 from constants import CSV_DELIMITER
 from storage.storage_backend import StorageBackend
+from trace_analysis.classification.classification_result import ClassificationResult
 from utils.logger import Logger
 
 
 class CsvFileStorage(StorageBackend):
+    def store_classification_result(self, classification_result: ClassificationResult):
+        pass
+
     def store_test_case_result(self, test_case_result: TestCaseResult):
         raise NotImplementedError
 
