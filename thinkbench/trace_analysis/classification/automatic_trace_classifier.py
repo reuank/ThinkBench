@@ -7,7 +7,7 @@ from typing import List, Dict
 import nltk
 from tqdm import tqdm
 
-from benchmark.results import TestCaseResult
+from benchmark.results import TestCaseResult, SingleBenchmarkResult
 from storage.backends.json_file_storage import JsonFileStorage
 from trace_analysis.classification.classification_result import ClassificationResult, SingleClassification
 from trace_analysis.classification.trace_class import TraceClass
@@ -28,7 +28,6 @@ class AutomaticTraceClassifier(TraceClassifier):
         for cot_test_case_result_id, cot_test_case_result in enumerate(
                 tqdm(cot_test_case_results, desc="Running automatic trace classification.")
         ):
-            classify_again = True
             non_cot_test_case_result = non_cot_test_case_results[cot_test_case_result_id]
 
             classification_result_file_name = JsonFileStorage.get_classification_result_file_name_for_test_cases(
@@ -43,105 +42,36 @@ class AutomaticTraceClassifier(TraceClassifier):
                 current_classification_result = json_storage_backend.load_classification_result(
                     classification_result_file_name=classification_result_file_name
                 )
-                #
-                # manual_class_ids = TraceClassifier.get_manual_class_ids(current_classification_result)
-                # automatic_class_ids = TraceClassifier.get_manual_class_ids(current_classification_result)
-                #
-                # num_manually_labeled = sum(manual_class_id != 0 for manual_class_id in manual_class_ids)
-                # num_automatically_labeled = sum(automatic_class_id != 0 for automatic_class_id in automatic_class_ids)
-                #
-                # classify_again = Interaction.query_yes_no(
-                #     question=f"A classification file for this run already exists for model {cot_test_case_result['model']}."
-                #              f"\nIt contains {num_automatically_labeled} automatically labeled and "
-                #              f"{num_manually_labeled} manually labelled traces."
-                #              f"\n Do you want to re-run the automatic classification?",
-                #     default="yes"
-                # )
 
-            if classify_again:
-                new_automatic_classification = AutomaticTraceClassifier.classify_test_case_result(
-                    cot_test_case_result=cot_test_case_result,
-                    non_cot_test_case_result=non_cot_test_case_result
-                )
+            new_automatic_classification = AutomaticTraceClassifier.classify_test_case_result(
+                cot_test_case_result=cot_test_case_result,
+                non_cot_test_case_result=non_cot_test_case_result
+            )
 
-                classification_results.append(
-                    TraceClassifier.merge_manual_class_ids(
-                        manual_classification_result=current_classification_result,
-                        automatic_classification_result=new_automatic_classification
-                    )
+            classification_results.append(
+                TraceClassifier.merge_manual_class_ids(
+                    manual_classification_result=current_classification_result,
+                    automatic_classification_result=new_automatic_classification
                 )
+            )
 
         return classification_results
 
     @staticmethod
-    def classify_test_case_result(cot_test_case_result: TestCaseResult, non_cot_test_case_result: TestCaseResult):
-        trace_ids = {
-            "extractable": [],
-            "ambiguous": [],
-            "questions": [],
-            "unresolved": [],
-        }
-
+    def classify_test_case_result(
+            cot_test_case_result: TestCaseResult,
+            non_cot_test_case_result: TestCaseResult
+    ) -> ClassificationResult:
         single_classifications: List[SingleClassification] = []
 
         for cot_single_benchmark_result_id, cot_single_benchmark_result in enumerate(cot_test_case_result["results"]):
             non_cot_single_benchmark_result = non_cot_test_case_result["results"][cot_single_benchmark_result_id]
-            reasoning_trace = cot_single_benchmark_result["completions"][0]["reasoning"]["text"]
 
-            trace_sentences = AutomaticTraceClassifier.get_trace_sentences(reasoning_trace)
-
-            trace_answer_sentences, sentence_counts = AutomaticTraceClassifier.extract_answer_sentences(
+            single_classification = AutomaticTraceClassifier.classify_single_benchmark_result(
                 model_name=cot_test_case_result["model"],
-                trace_sentences=trace_sentences,
-                labels=cot_single_benchmark_result["labels"]
+                cot_single_benchmark_result=cot_single_benchmark_result,
+                non_cot_single_benchmark_result=non_cot_single_benchmark_result
             )
-
-            question_id = cot_single_benchmark_result["question_id"]
-
-            single_classification: SingleClassification = SingleClassification(
-                question_id=question_id,
-                reasoning=reasoning_trace,
-                cot_model_choice=cot_single_benchmark_result["model_choice"],
-                non_cot_model_choice=non_cot_single_benchmark_result["model_choice"],
-                manual_class_id=None,
-                automatic_class_id=4,
-                extracted_labels= []
-            )
-
-            # At least one answer sentence was found
-            if len(trace_answer_sentences) > 0:
-                extracted_labels = []
-                for trace_answer_sentence in trace_answer_sentences:
-                    extracted_labels += AutomaticTraceClassifier.extract_label_matches_from_sentence(
-                        trace_answer_sentence,
-                        cot_single_benchmark_result["labels"]
-                    )
-                extracted_labels = sorted(set(extracted_labels))
-
-                if len(extracted_labels) > 1:
-                    single_classification["automatic_class_id"] = TraceClass.TRACE_LABEL_AMBIGUOUS.value
-                    trace_ids["ambiguous"].append(question_id)
-
-                elif len(extracted_labels) == 0 and sentence_counts["none_picked"] > 0:
-                    single_classification["automatic_class_id"] = TraceClass.NO_TRACE_LABEL.value
-
-                elif len(extracted_labels) == 1:
-                    if cot_single_benchmark_result["model_choice"] == extracted_labels[0]:
-                        single_classification["automatic_class_id"] = TraceClass.TRACE_LABEL_UNAMBIGUOUS_EXTRACTION_SUCCEEDED.value
-                    else:
-                        single_classification["automatic_class_id"] = TraceClass.TRACE_LABEL_UNAMBIGUOUS_EXTRACTION_FAILED.value
-
-                single_classification["extracted_labels"] = extracted_labels
-                trace_ids["extractable"].append(question_id)
-
-            elif sentence_counts["questions_commands"] > 0:
-                single_classification["automatic_class_id"] = TraceClass.NO_TRACE_LABEL.value
-                trace_ids["questions"].append(question_id)
-
-            else:
-                if sentence_counts["none_picked"] > 0:
-                    single_classification["automatic_class_id"] = TraceClass.NO_TRACE_LABEL.value
-                trace_ids["unresolved"].append(question_id)
 
             single_classifications.append(single_classification)
 
@@ -154,6 +84,83 @@ class AutomaticTraceClassifier(TraceClassifier):
             non_cot_benchmark_name=non_cot_test_case_result["benchmark_name"],
             results=single_classifications
         )
+
+    @staticmethod
+    def classify_single_benchmark_result(
+            model_name: str,
+            cot_single_benchmark_result: SingleBenchmarkResult,
+            non_cot_single_benchmark_result: SingleBenchmarkResult,
+    ) -> SingleClassification:
+        return AutomaticTraceClassifier.classify_single_reasoning_trace(
+            model_name=model_name,
+            cot_model_choice=cot_single_benchmark_result['model_choice'],
+            question_id=cot_single_benchmark_result['question_id'],
+            valid_labels=cot_single_benchmark_result['labels'],
+            non_cot_model_choice=non_cot_single_benchmark_result['model_choice'],
+            reasoning_trace=cot_single_benchmark_result['completions'][0]['reasoning']['text']
+        )
+
+    @staticmethod
+    def classify_single_reasoning_trace(
+            model_name: str,
+            valid_labels: List[str],
+            question_id: int,
+            cot_model_choice: str,
+            non_cot_model_choice: str,
+            reasoning_trace: str
+    ) -> SingleClassification:
+        trace_sentences = AutomaticTraceClassifier.get_trace_sentences(reasoning_trace)
+        trace_answer_sentences, sentence_counts = AutomaticTraceClassifier.extract_answer_sentences(
+            model_name=model_name,
+            trace_sentences=trace_sentences,
+            labels=valid_labels
+        )
+
+        single_classification: SingleClassification = SingleClassification(
+            question_id=question_id,
+            reasoning=reasoning_trace,
+            cot_model_choice=cot_model_choice,
+            non_cot_model_choice=non_cot_model_choice,
+            manual_class_id=None,
+            automatic_class_id=4,
+            extracted_labels=[]
+        )
+
+        # At least one answer sentence was found
+        if len(trace_answer_sentences) > 0:
+            extracted_labels = []
+            for trace_answer_sentence in trace_answer_sentences:
+                extracted_labels += AutomaticTraceClassifier.extract_label_matches_from_sentence(
+                    trace_answer_sentence,
+                    valid_labels
+                )
+            extracted_labels = sorted(set(extracted_labels))
+
+            if len(extracted_labels) > 1:
+                single_classification["automatic_class_id"] = TraceClass.TRACE_LABEL_AMBIGUOUS.value
+
+            elif len(extracted_labels) == 0 and sentence_counts["none_picked"] > 0:
+                single_classification["automatic_class_id"] = TraceClass.NO_TRACE_LABEL.value
+
+            elif len(extracted_labels) == 1:
+                if cot_model_choice == extracted_labels[0]:
+                    single_classification[
+                        "automatic_class_id"] = TraceClass.TRACE_LABEL_UNAMBIGUOUS_EXTRACTION_SUCCEEDED.value
+                else:
+                    single_classification[
+                        "automatic_class_id"] = TraceClass.TRACE_LABEL_UNAMBIGUOUS_EXTRACTION_FAILED.value
+
+            single_classification["extracted_labels"] = extracted_labels
+
+        elif sentence_counts["questions_commands"] > 0:
+            single_classification["automatic_class_id"] = TraceClass.NO_TRACE_LABEL.value
+
+        else:
+            if sentence_counts["none_picked"] > 0:
+                single_classification["automatic_class_id"] = TraceClass.NO_TRACE_LABEL.value
+
+        return single_classification
+
 
     @staticmethod
     def extract_answer_sentences(
