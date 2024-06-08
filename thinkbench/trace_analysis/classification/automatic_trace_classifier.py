@@ -16,7 +16,7 @@ from trace_analysis.classification.trace_classifier import TraceClassifier
 
 class AutomaticTraceClassifier(TraceClassifier):
     @staticmethod
-    def classify_traces(
+    def classify_test_case_results(
             cot_test_case_results: List[TestCaseResult],
             non_cot_test_case_results: List[TestCaseResult],
             override: bool

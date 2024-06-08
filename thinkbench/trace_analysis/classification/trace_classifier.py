@@ -13,9 +13,9 @@ from utils.logger import Logger
 class TraceClassifier(ABC):
     @staticmethod
     @abstractmethod
-    def classify_traces(
-            all_cot_results: List[TestCaseResult],
-            all_non_cot_results: List[TestCaseResult],
+    def classify_test_case_results(
+            cot_test_case_results: List[TestCaseResult],
+            non_cot_test_case_results: List[TestCaseResult],
             override: bool
     ) -> List[ClassificationResult]:
         raise NotImplementedError

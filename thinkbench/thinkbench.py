@@ -147,7 +147,7 @@ def classify_traces_cli(
     ResultLoader.ensure_reasoning_present(cot_test_case_results)
 
     Logger.print_header("Manual Classification")
-    manual_classifications = ManualTraceClassifier.classify_traces(
+    manual_classifications = ManualTraceClassifier.classify_test_case_results(
         cot_test_case_results=cot_test_case_results,
         non_cot_test_case_results=non_cot_test_case_results,
         override=override
@@ -155,7 +155,7 @@ def classify_traces_cli(
     ManualTraceClassifier.store_classification_results(manual_classifications)
 
     Logger.print_header("Automatic Classification")
-    complete_classifications = AutomaticTraceClassifier.classify_traces(
+    complete_classifications = AutomaticTraceClassifier.classify_test_case_results(
         cot_test_case_results=cot_test_case_results,
         non_cot_test_case_results=non_cot_test_case_results,
         override=override
