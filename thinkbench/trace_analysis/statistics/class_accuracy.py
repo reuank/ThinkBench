@@ -1,6 +1,7 @@
 from typing import Dict, Any, List
 
 from benchmark.results import TestCaseResult
+from trace_analysis.classification.trace_class import TraceClass
 from trace_analysis.statistics.run_stat import RunStat
 from utils.logger import Logger
 
@@ -12,33 +13,38 @@ class ClassAccuracy(RunStat):
             non_cot_test_case_results: List[TestCaseResult],
             class_id: int = -1
     ):
-        stat_table_rows = []
+        class_ids = [class_id]
+        if class_id == -1:
+            class_ids.extend(TraceClass.get_ids())
 
-        for result_id in range(len(cot_test_case_results)):
-            question_ids_of_class = RunStat.get_question_ids_of_class(
-                class_id=class_id,
-                cot_test_case_result=cot_test_case_results[result_id],
-                non_cot_test_case_result=non_cot_test_case_results[result_id]
+        for class_id in class_ids:
+            stat_table_rows = []
+
+            for result_id in range(len(cot_test_case_results)):
+                question_ids_of_class = RunStat.get_question_ids_of_class(
+                    class_id=class_id,
+                    cot_test_case_result=cot_test_case_results[result_id],
+                    non_cot_test_case_result=non_cot_test_case_results[result_id]
+                )
+
+                complete_result = ClassAccuracy.compute(
+                    cot_result_file_data=cot_test_case_results[result_id],
+                    non_cot_result_file_data=non_cot_test_case_results[result_id],
+                    question_ids_of_class=question_ids_of_class
+                )
+
+                model = complete_result["model"]
+                non_cot_accuracy_in_class = complete_result["correct_non_cot_results"] / complete_result["total_results_in_class"]
+                cot_accuracy_in_class = complete_result["correct_cot_results"] / complete_result["total_results_in_class"]
+                ratio = complete_result["total_results_in_class"] / complete_result["total_results"]
+
+                stat_table_rows.append([model, non_cot_accuracy_in_class, cot_accuracy_in_class, ratio])
+
+            Logger.print_header(f"Trace class accuracy stats, trace class: {'all' if class_id == -1 else class_id}")
+            Logger.print_table(
+                rows=[RunStat.float_list_to_percent(stat_table_row) for stat_table_row in stat_table_rows],
+                headers=["Model", "Non CoT Accuracy", "CoT Accuracy", "Ratio"]
             )
-
-            complete_result = ClassAccuracy.compute(
-                cot_result_file_data=cot_test_case_results[result_id],
-                non_cot_result_file_data=non_cot_test_case_results[result_id],
-                question_ids_of_class=question_ids_of_class
-            )
-
-            model = complete_result["model"]
-            non_cot_accuracy_in_class = complete_result["correct_non_cot_results"] / complete_result["total_results_in_class"]
-            cot_accuracy_in_class = complete_result["correct_cot_results"] / complete_result["total_results_in_class"]
-            ratio = complete_result["total_results_in_class"] / complete_result["total_results"]
-
-            stat_table_rows.append([model, non_cot_accuracy_in_class, cot_accuracy_in_class, ratio])
-
-        Logger.print_header(f"Trace class accuracy stats, trace class: {'all' if class_id == -1 else class_id}")
-        Logger.print_table(
-            rows=[RunStat.float_list_to_percent(row) for row in rows],
-            headers=["Model", "Non CoT Accuracy", "CoT Accuracy", "Ratio"]
-        )
 
     @staticmethod
     def compute(
