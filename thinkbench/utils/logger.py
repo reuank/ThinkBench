@@ -31,6 +31,10 @@ class Logger:
             print(f"{prefix}{message}")
 
     @staticmethod
+    def debug(message: str, prefix: str = f"{LOGGER_PREFIX}Debug: "):
+        print(f"{prefix}{message}")
+
+    @staticmethod
     def error(message: str, prefix: str = f"{LOGGER_PREFIX}Error: "):
         if LOG_ERROR:
             print(f"{prefix}{message}")

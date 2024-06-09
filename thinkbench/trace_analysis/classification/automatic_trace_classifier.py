@@ -1,3 +1,4 @@
+import json
 import re
 import string
 from pathlib import Path
@@ -12,6 +13,7 @@ from storage.backends.json_file_storage import JsonFileStorage
 from trace_analysis.classification.classification_result import ClassificationResult, SingleClassification
 from trace_analysis.classification.trace_class import TraceClass
 from trace_analysis.classification.trace_classifier import TraceClassifier
+from utils.logger import Logger
 
 
 class AutomaticTraceClassifier(TraceClassifier):
@@ -113,7 +115,8 @@ class AutomaticTraceClassifier(TraceClassifier):
         trace_answer_sentences, sentence_counts = AutomaticTraceClassifier.extract_answer_sentences(
             model_name=model_name,
             trace_sentences=trace_sentences,
-            labels=valid_labels
+            labels=valid_labels,
+            debug=False  # (model_name == "orca-2-13b" and question_id == 147)
         )
 
         single_classification: SingleClassification = SingleClassification(
@@ -161,12 +164,12 @@ class AutomaticTraceClassifier(TraceClassifier):
 
         return single_classification
 
-
     @staticmethod
     def extract_answer_sentences(
-            model_name: str,
-            trace_sentences: List[str],
-            labels: List[str]
+        model_name: str,
+        trace_sentences: List[str],
+        labels: List[str],
+        debug: bool = False
     ) -> (List[str], Dict[str, int]):
         trace_answer_sentences = []
         sentence_counts = {
@@ -174,10 +177,10 @@ class AutomaticTraceClassifier(TraceClassifier):
             "none_picked": 0,
         }
 
-        definite_answer_sentence_indicators = []
-
         in_sentence_chars = string.ascii_letters + string.digits + string.whitespace
         printable_chars = string.ascii_letters + string.digits + string.punctuation + string.whitespace
+
+        definite_answer_sentence_indicators = []
 
         answer_sentence_indicators = [
             r"the correct answer is",
@@ -244,12 +247,11 @@ class AutomaticTraceClassifier(TraceClassifier):
             r"we can eliminate",
             r"answer is not",
 
-            # Mistral
-            r"rather than"
+            # Llama 2 70b
+            r"the correct answer cannot be"
         ]
 
         none_picked_indicators = [
-            # Orca 2 13b
             r"None of the given",
             r"no single correct answer",
             rf"none of the [{re.escape(in_sentence_chars)}]* answer choices",
@@ -257,6 +259,8 @@ class AutomaticTraceClassifier(TraceClassifier):
             rf"none of the options are correct",
             r"error in the given answer choices",
             r"no correct answer among the given choices",
+            r"we cannot determine",
+            r"Cannot be determined"
         ]
 
         question_command_indicators = [
@@ -270,45 +274,63 @@ class AutomaticTraceClassifier(TraceClassifier):
         if "orca" in model_name:
             # tokenizer._params.abbrev_types.remove({"a", "b", "c", "d"})
             definite_answer_sentence_indicators.append("### Final Answer")
+        elif "mistral" in model_name:
+            exclusion_indicators.append(r"rather than")
+
+        if debug:
+            enumerated_sentences = [
+                f"ID {trace_sentence_id}) {trace_sentence}"
+                for trace_sentence_id, trace_sentence in enumerate(trace_sentences)
+            ]
+            Logger.debug(f"Analyzing trace sentences:\n{json.dumps(enumerated_sentences, indent=2)}")
 
         # Loop over all sentences of the reasoning trace
         for trace_sentence_id, trace_sentence in enumerate(trace_sentences):
             # Skip sentences which are most likely not relevant
             if any(re.search(exclusion_indicator, trace_sentence, re.IGNORECASE) for exclusion_indicator in exclusion_indicators):
+                if debug:
+                    Logger.debug(f"--> Sentence {trace_sentence_id} skipped because of exclusion_indicator")
                 continue
 
             # Check for matches with after_answer_sentence_indicator
             if any(after_answer_sentence_indicator in trace_sentence for after_answer_sentence_indicator in after_answer_sentence_indicators):  # Include sentence before
-
                 # Indicator stands alone, not e.g. "Option (B) improve existing products: This option is correct!"
                 if len(AutomaticTraceClassifier.extract_label_matches_from_sentence(trace_sentence, labels)) == 0:
+                    if debug:
+                        Logger.debug(f"--> After answer indicator found in sentence id {trace_sentence_id}")
                     trace_answer_sentences.append(trace_sentences[trace_sentence_id - 1] + "\n" + trace_sentence)
                     continue
 
-            # If sentence is not skipped until here, search for answer indicators
-            if any(re.search(answer_sentence_indicator, trace_sentence, re.IGNORECASE) for
-                   answer_sentence_indicator
-                   in answer_sentence_indicators):
-                trace_answer_sentences.append(trace_sentence)
-
-            # If sentence is not skipped until here, search for answer indicators
-            if any(re.search(none_picked_indicator, trace_sentence, re.IGNORECASE) for none_picked_indicator in
-                   none_picked_indicators):
+            # If sentence is not skipped until here, search for none picked indicators
+            if any(re.search(none_picked_indicator, trace_sentence, re.IGNORECASE) for none_picked_indicator in none_picked_indicators):
+                if debug:
+                    Logger.debug(f"--> None picked indicator found in sentence id {trace_sentence_id}, skipping.")
                 # trace_answer_sentences.append(trace_sentence)
                 sentence_counts["none_picked"] += 1
+                continue
 
-            # The last sentence contains a question or a command, so the model probably did not chose a label
-            if trace_sentence_id == len(trace_sentences) - 1 and any(
-                    re.search(question_command_indicator, trace_sentence) for question_command_indicator in
-                    question_command_indicators):
+            # If sentence is not skipped until here, search for answer indicators
+            if any(re.search(answer_sentence_indicator, trace_sentence, re.IGNORECASE) for answer_sentence_indicator in answer_sentence_indicators):
+                if debug:
+                    Logger.debug(f"--> Answer sentence indicator found in sentence id {trace_sentence_id}.")
+                trace_answer_sentences.append(trace_sentence)
+
+            # The last sentence contains a question or a command, so the model probably did not choose a label
+            if trace_sentence_id == len(trace_sentences) - 1 and any(re.search(question_command_indicator, trace_sentence) for question_command_indicator in question_command_indicators):
+                if debug:
+                    Logger.debug(f"--> Question or command indicator found in sentence id {trace_sentence_id}.")
                 # trace_answer_sentences.append(trace_sentence)
                 sentence_counts["questions_commands"] += 1
 
         for trace_answer_sentence in trace_answer_sentences:
-            if any(re.search(definite_answer_sentence_indicator, trace_answer_sentence, re.IGNORECASE) for
-                   definite_answer_sentence_indicator in definite_answer_sentence_indicators):
+            if any(re.search(definite_answer_sentence_indicator, trace_answer_sentence, re.IGNORECASE) for definite_answer_sentence_indicator in definite_answer_sentence_indicators):
+                if debug:
+                    Logger.debug(f"--> Definite answer sentence indicator found in answer sentence '{trace_answer_sentence}'.")
                 trace_answer_sentences = [trace_answer_sentence]
                 break
+
+        if debug:
+            Logger.debug(f"All extracted trace answer sentences:\n{json.dumps(trace_answer_sentences, indent=2)}")
 
         return trace_answer_sentences, sentence_counts
 
@@ -378,6 +400,8 @@ class AutomaticTraceClassifier(TraceClassifier):
                                         f"({label})")  # fixes e.g. "(D) A buildup of cooled lava: This is the correct answer!"
             sentence = sentence.replace(f"Option {label}: A ",
                                         f"Option ({label})")  # fixes e.g. "So, the best example of physical weathering is Option B: A bulldozer pushing soil."
+            sentence = sentence.replace(f"{label}) A ",
+                                        f"{label})")  # fixes e.g. Therefore, the correct answer is C) A large number of...
 
         for label in labels:
             for label_pattern in label_patterns:
