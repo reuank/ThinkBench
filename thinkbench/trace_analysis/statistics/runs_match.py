@@ -3,11 +3,13 @@ from typing import List, Dict, Any
 import numpy as np
 
 from benchmark.results import TestCaseResult
-from trace_analysis.statistics.run_stat import RunStat
+from trace_analysis.classification.trace_classifier import TraceClassifier
+from utils.list_utils import float_list_to_percent
 from utils.logger import Logger
+from utils.test_case_result_helper import TestCaseResultHelper
 
 
-class RunsMatch(RunStat):
+class RunsMatch:
     @staticmethod
     def compute_all(
             cot_test_case_results: List[TestCaseResult],
@@ -15,7 +17,7 @@ class RunsMatch(RunStat):
             class_id: int = -1
     ):
         for result_id in range(len(cot_test_case_results)):
-            question_ids_of_class = RunStat.get_question_ids_of_class(
+            question_ids_of_class = TraceClassifier.get_question_ids_of_class(
                 class_id=class_id,
                 cot_test_case_result=cot_test_case_results[result_id],
                 non_cot_test_case_result=non_cot_test_case_results[result_id]
@@ -45,17 +47,16 @@ class RunsMatch(RunStat):
 
             Logger.print_header(f"Runs Match Stats for model {complete_result['model']}, trace class: {'all' if class_id == -1 else class_id}")
             Logger.print_table(
-                rows=[[row_headers[i]] + RunsMatch.float_list_to_percent(row) for i, row in enumerate(relative_rows)],
+                rows=[[row_headers[i]] + float_list_to_percent(row) for i, row in enumerate(relative_rows)],
                 headers=[""] + column_headers
             )
 
-
     @staticmethod
     def compute(cot_result_file_data, non_cot_result_file_data, question_ids_of_class: List[int]) -> Dict[str, Any]:
-        correct_answers = RunStat.get_correct_answers(cot_result_file_data)
+        correct_answers = TestCaseResultHelper.get_correct_answers(cot_result_file_data)
 
-        cot_model_choices = RunStat.get_model_choices(cot_result_file_data)
-        non_cot_model_choices = RunStat.get_model_choices(non_cot_result_file_data)
+        cot_model_choices = TestCaseResultHelper.get_model_choices(cot_result_file_data)
+        non_cot_model_choices = TestCaseResultHelper.get_model_choices(non_cot_result_file_data)
 
         if len(cot_model_choices) != len(non_cot_model_choices):
             raise ValueError("Lengths don't match")

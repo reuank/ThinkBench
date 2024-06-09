@@ -2,12 +2,12 @@ import json
 
 import fire
 
-from utils.result_loader import ResultLoader
+from utils.test_case_result_helper import TestCaseResultHelper
 
 class ResultValidator:
     @staticmethod
     def check_anomalies(result_file: str):
-        results = ResultLoader.load_result_file(result_file)
+        results = TestCaseResultHelper.load_result_file(result_file)
 
         actually_correct_count = 0
         false_passes = 0
@@ -64,8 +64,8 @@ class ResultValidator:
 
     @staticmethod
     def compare(result_file_1, result_file_2):
-        results_1 = ResultLoader.load_result_file(result_file_1)["results"]
-        results_2 = ResultLoader.load_result_file(result_file_2)["results"]
+        results_1 = TestCaseResultHelper.load_result_file(result_file_1)["results"]
+        results_2 = TestCaseResultHelper.load_result_file(result_file_2)["results"]
 
         if len(results_1) != len(results_2):
             raise ValueError("Lengths of result files do not match")

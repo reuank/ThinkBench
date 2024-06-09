@@ -16,7 +16,7 @@ from typing import List, Dict, Union
 from tabulate import tabulate
 
 from utils.registry import Registry
-from utils.result_loader import ResultLoader
+from utils.test_case_result_helper import TestCaseResultHelper
 
 
 class TraceAnalysisResult(ABC):
@@ -125,15 +125,15 @@ class TraceAnalysis(ABC):
         baseline_result_path = Path(baseline_result_path)
 
         if result_path.is_dir() and baseline_result_path.is_dir():
-            model_names, results_data, baseline_results_data = ResultLoader.load_two_runs_from_dirs(
+            model_names, results_data, baseline_results_data = TestCaseResultHelper.load_two_runs_from_dirs(
                 first_results_dir=result_path,
                 second_results_dir=baseline_result_path
             )
 
             results.extend(analysis.run_multiple_analysis(results_data, baseline_results_data))
         else:
-            results_data = ResultLoader.load_result(result_file=result_path)
-            baseline_results_data = ResultLoader.load_result(result_file=baseline_result_path)
+            results_data = TestCaseResultHelper.load_result(result_file=result_path)
+            baseline_results_data = TestCaseResultHelper.load_result(result_file=baseline_result_path)
 
             results.append(analysis.run_analysis(results_data, baseline_results_data))
 
@@ -152,9 +152,9 @@ class TraceAnalysis(ABC):
     def analyze_single_model(result_file: str, baseline_result_file: str = None):
         baseline_result_file_data = None
         if baseline_result_file:
-            baseline_result_file_data = ResultLoader.load_result_file(baseline_result_file)
+            baseline_result_file_data = TestCaseResultHelper.load_result_file(baseline_result_file)
 
-        result_file_data = ResultLoader.load_result_file(result_file)
+        result_file_data = TestCaseResultHelper.load_result_file(result_file)
 
         analysis_result = TraceAnalysis.analyze_trace_label_match(result_file_data, baseline_result_file_data)
 
@@ -166,7 +166,7 @@ class TraceAnalysis(ABC):
 
     @staticmethod
     def analyze_multiple_models(cot_results_dir: str, non_cot_results_dir: str):
-        model_names, non_cot_results_data, cot_results_data = ResultLoader.load_cot_and_non_cot_from_dirs(cot_results_dir, non_cot_results_dir)
+        model_names, non_cot_results_data, cot_results_data = TestCaseResultHelper.load_cot_and_non_cot_from_dirs(cot_results_dir, non_cot_results_dir)
 
         analysis_results = []
         for model_id, model_name in enumerate(model_names):

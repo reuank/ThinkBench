@@ -11,11 +11,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from tabulate import tabulate
 
-from utils.result_loader import ResultLoader
+from utils.test_case_result_helper import TestCaseResultHelper
 
 
 def calculate_stats_all_models(method: str, cot_results_dir: str, non_cot_results_dir: str):
-    model_names, non_cot_results_data, cot_results_data = ResultLoader.load_cot_and_non_cot_from_dirs(cot_results_dir, non_cot_results_dir)
+    model_names, non_cot_results_data, cot_results_data = TestCaseResultHelper.load_cot_and_non_cot_from_dirs(cot_results_dir, non_cot_results_dir)
 
     calculated_stats = {}
 
@@ -38,9 +38,9 @@ def calculate_stats_all_models(method: str, cot_results_dir: str, non_cot_result
 def calculate_stats_single_model(method: str, cot_result_file: str, non_cot_result_file: str):
     non_cot_result_file_data = None
     if non_cot_result_file:
-        non_cot_result_file_data = ResultLoader.load_result_file(non_cot_result_file)
+        non_cot_result_file_data = TestCaseResultHelper.load_result_file(non_cot_result_file)
 
-    cot_result_file_data = ResultLoader.load_result_file(cot_result_file)
+    cot_result_file_data = TestCaseResultHelper.load_result_file(cot_result_file)
 
     if method == "confidence_interval":
         confidence_intervals(cot_result_file_data)
@@ -109,41 +109,7 @@ def calculate_confidence_interval(correct_answers, total_questions, confidence_l
     return p, lower_bound, upper_bound, margin
 
 
-def confusion_matrix(results, ignore_odd_label_counts = True, ignore_number_labels = True):
-    # Extract correct answers and model choices
-    correct_answers = []
-    model_choices = []
-    odd_label_count = 0
-    number_label_count = 0
 
-    for result in results:
-        if len(result["labels"]) != 4:
-            odd_label_count += 1
-            if ignore_odd_label_counts:
-                continue
-
-        elif result["labels"][0] == "1":
-            number_label_count += 1
-            if ignore_number_labels:
-                continue
-
-        correct_answers.append(result['correct_answer'])
-        model_choices.append(result['model_choice'])
-
-    print("=" * 40)
-    print(f"Number of questions with label counts != 4: {odd_label_count}{' (ignored)' if ignore_odd_label_counts else ''}")
-    print(f"Number of questions with number labels: {number_label_count}{' (ignored)' if ignore_number_labels else ''}")
-
-    # Calculate the confusion matrix
-    labels = sorted(set(correct_answers + model_choices))  # Ensure all possible labels are included
-    conf_matrix = sklearn.metrics.confusion_matrix(correct_answers, model_choices, labels=labels)
-
-    plt.figure(figsize=(10, 7))
-    sns.heatmap(conf_matrix, annot=True, cmap='Blues', fmt='d', xticklabels=labels, yticklabels=labels)
-    plt.xlabel('Model Choice')
-    plt.ylabel('Correct Answer')
-    plt.title('Confusion Matrix')
-    plt.show()
 
 
 def evaluate_runs_match(cot_result_file_data, non_cot_result_file_data):
@@ -188,7 +154,7 @@ def evaluate_runs_match(cot_result_file_data, non_cot_result_file_data):
         # return [numerator, denominator]
 
     runs_match_result = {
-        # "model": cot_result_file_data["model"],
+        # "model": cot_test_case_result["model"],
         "results": len(cot_model_choices),
         "non_cot_uuid": non_cot_result_file_data["uuid"],
         "cot_uuid": cot_result_file_data["uuid"],

@@ -7,6 +7,7 @@ from trace_analysis.classification.classification_result import ClassificationRe
 from trace_analysis.classification.interactive_classifier import InteractiveClassifier
 from trace_analysis.classification.trace_classifier import TraceClassifier
 from utils.cli_interactions import Interaction
+from utils.test_case_result_helper import TestCaseResultHelper
 
 
 class ManualTraceClassifier(TraceClassifier):
@@ -24,8 +25,8 @@ class ManualTraceClassifier(TraceClassifier):
             classify_again = True
             non_cot_test_case_result = non_cot_test_case_results[cot_test_case_result_id]
 
-            non_cot_model_choices = TraceClassifier.get_model_choices(non_cot_test_case_result)
-            cot_model_choices = TraceClassifier.get_model_choices(cot_test_case_result)
+            non_cot_model_choices = TestCaseResultHelper.get_model_choices(non_cot_test_case_result)
+            cot_model_choices = TestCaseResultHelper.get_model_choices(cot_test_case_result)
 
             classification_result_file_name = JsonFileStorage.get_classification_result_file_name_for_test_cases(
                 cot_test_case_result,

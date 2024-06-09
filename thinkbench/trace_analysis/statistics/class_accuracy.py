@@ -2,11 +2,13 @@ from typing import Dict, Any, List
 
 from benchmark.results import TestCaseResult
 from trace_analysis.classification.trace_class import TraceClass
-from trace_analysis.statistics.run_stat import RunStat
+from trace_analysis.classification.trace_classifier import TraceClassifier
+from utils.list_utils import float_list_to_percent
 from utils.logger import Logger
+from utils.test_case_result_helper import TestCaseResultHelper
 
 
-class ClassAccuracy(RunStat):
+class ClassAccuracy:
     @staticmethod
     def compute_all(
             cot_test_case_results: List[TestCaseResult],
@@ -21,15 +23,15 @@ class ClassAccuracy(RunStat):
             stat_table_rows = []
 
             for result_id in range(len(cot_test_case_results)):
-                question_ids_of_class = RunStat.get_question_ids_of_class(
+                question_ids_of_class = TraceClassifier.get_question_ids_of_class(
                     class_id=class_id,
                     cot_test_case_result=cot_test_case_results[result_id],
                     non_cot_test_case_result=non_cot_test_case_results[result_id]
                 )
 
                 complete_result = ClassAccuracy.compute(
-                    cot_result_file_data=cot_test_case_results[result_id],
-                    non_cot_result_file_data=non_cot_test_case_results[result_id],
+                    cot_test_case_result=cot_test_case_results[result_id],
+                    non_cot_test_case_result=non_cot_test_case_results[result_id],
                     question_ids_of_class=question_ids_of_class
                 )
 
@@ -42,18 +44,20 @@ class ClassAccuracy(RunStat):
 
             Logger.print_header(f"Trace class accuracy stats, trace class: {'all' if class_id == -1 else class_id}")
             Logger.print_table(
-                rows=[RunStat.float_list_to_percent(stat_table_row) for stat_table_row in stat_table_rows],
+                rows=[float_list_to_percent(stat_table_row) for stat_table_row in stat_table_rows],
                 headers=["Model", "Non CoT Accuracy", "CoT Accuracy", "Ratio"]
             )
 
     @staticmethod
     def compute(
-            cot_result_file_data, non_cot_result_file_data, question_ids_of_class: List[int]
+            cot_test_case_result,
+            non_cot_test_case_result,
+            question_ids_of_class: List[int]
     ) -> Dict[str, Any]:
-        correct_answers = ClassAccuracy.get_correct_answers(cot_result_file_data)
+        correct_answers = TestCaseResultHelper.get_correct_answers(cot_test_case_result)
 
-        cot_model_choices = RunStat.get_model_choices(cot_result_file_data)
-        non_cot_model_choices = RunStat.get_model_choices(non_cot_result_file_data)
+        cot_model_choices = TestCaseResultHelper.get_model_choices(cot_test_case_result)
+        non_cot_model_choices = TestCaseResultHelper.get_model_choices(non_cot_test_case_result)
 
         if len(cot_model_choices) != len(non_cot_model_choices):
             raise ValueError("Lengths don't match")
@@ -72,7 +76,7 @@ class ClassAccuracy(RunStat):
                 correct_non_cot_ids.append(index)
 
         runs_match_result = {
-            "model": cot_result_file_data["model"],
+            "model": cot_test_case_result["model"],
             "total_results": len(cot_model_choices),
             "total_results_in_class": len(question_ids_of_class),
             "correct_cot_results": len(correct_cot_ids),

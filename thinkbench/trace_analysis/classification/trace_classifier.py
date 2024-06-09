@@ -5,8 +5,8 @@ from typing import Dict, List, Union
 from benchmark.results import TestCaseResult
 from constants import TRACE_SAMPLES_PER_RUN
 from storage.backends.json_file_storage import JsonFileStorage
-from trace_analysis.classification.automatic_trace_classifier import TraceClass
 from trace_analysis.classification.classification_result import ClassificationResult, SingleClassification
+from trace_analysis.classification.trace_class import TraceClass
 from utils.logger import Logger
 
 
@@ -30,10 +30,6 @@ class TraceClassifier(ABC):
             return False
         except ValueError:
             return False
-
-    @staticmethod
-    def get_model_choices(test_case_result: TestCaseResult) -> List[str]:
-        return [single_benchmark_result["model_choice"] for single_benchmark_result in test_case_result["results"]]
 
     @staticmethod
     def get_manual_class_ids(classification_result: ClassificationResult):
@@ -71,6 +67,31 @@ class TraceClassifier(ABC):
                 return single_classification
 
         return None
+
+    @staticmethod
+    def get_question_ids_of_class(
+            class_id: int,
+            cot_test_case_result: TestCaseResult,
+            non_cot_test_case_result: TestCaseResult
+    ):
+        json_file_storage = JsonFileStorage()
+
+        classification_result_file_name = json_file_storage.get_classification_result_file_name_for_test_cases(
+            non_cot_test_case_result=non_cot_test_case_result,
+            cot_test_case_result=cot_test_case_result
+        )
+
+        classification_result = json_file_storage.load_classification_result(classification_result_file_name)
+
+        question_ids_of_class = []
+        for single_classification in classification_result["results"]:
+            if class_id == -1:
+                question_ids_of_class.append(single_classification["question_id"])
+            else:
+                if class_id == single_classification["automatic_class_id"]:
+                    question_ids_of_class.append(single_classification["question_id"])
+
+        return question_ids_of_class
 
     @staticmethod
     def merge_manual_class_ids(

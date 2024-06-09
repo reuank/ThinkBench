@@ -58,7 +58,14 @@ class JsonFileStorage(StorageBackend):
             non_cot_uuid: str,
     ):
         return StorageBackend.get_run_dependent_file_name(
-            model_name, benchmark_name, dataset_name, cot_uuid, non_cot_uuid, "classification", "json"
+            model_name=model_name,
+            benchmark_name=benchmark_name,
+            dataset_name=dataset_name,
+            cot_uuid=cot_uuid,
+            non_cot_uuid=non_cot_uuid,
+            prefix="",
+            suffix="_classification",
+            extension="json"
         )
 
     @staticmethod

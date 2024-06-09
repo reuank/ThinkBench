@@ -49,15 +49,17 @@ class StorageBackend(ABC):
             dataset_name: str,
             cot_uuid: str,
             non_cot_uuid: str,
-            suffix: str,
-            extension: str
+            extension: str,
+            prefix: str = "",
+            suffix: str = ""
     ):
-        file_name = f"{model_name}" \
+        file_name = f"{prefix}" \
+                    f"{model_name}" \
                     f"_{benchmark_name}" \
                     f"_{dataset_name}" \
                     f"_C-{cot_uuid}" \
                     f"_N-{non_cot_uuid}" \
-                    f"_{suffix}.{extension}"
+                    f"{suffix}.{extension}"
 
         return file_name
 

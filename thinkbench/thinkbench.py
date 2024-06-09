@@ -13,11 +13,12 @@ from trace_analysis.classification.classification_evaluator import Classificatio
 from trace_analysis.classification.automatic_trace_classifier import AutomaticTraceClassifier, TraceClass
 from trace_analysis.classification.manual_trace_classifier import ManualTraceClassifier
 from trace_analysis.statistics.class_accuracy import ClassAccuracy
+from trace_analysis.statistics.label_confusion import LabelConfusion
 from trace_analysis.statistics.runs_match import RunsMatch
 from utils.env_loader import EnvReader
 from utils.list_utils import ensure_list
 from utils.logger import Logger
-from utils.result_loader import ResultLoader
+from utils.test_case_result_helper import TestCaseResultHelper
 from utils.timer import Timer
 from storage.storage_backend import StorageBackend
 
@@ -143,8 +144,8 @@ def classify_traces_cli(
     evaluate: bool = True,
     override: bool = False
 ):
-    cot_test_case_results, non_cot_test_case_results = ResultLoader.load_two_runs(cot_results_path, non_cot_results_path)
-    ResultLoader.ensure_reasoning_present(cot_test_case_results)
+    cot_test_case_results, non_cot_test_case_results = TestCaseResultHelper.load_two_runs(cot_results_path, non_cot_results_path)
+    TestCaseResultHelper.ensure_reasoning_present(cot_test_case_results)
 
     Logger.print_header("Manual Classification")
     manual_classifications = ManualTraceClassifier.classify_test_case_results(
@@ -172,22 +173,39 @@ def analyze_trace_classes_cli(
         non_cot_results_path: str,
         class_accuracy: bool = False,
         runs_match: bool = False,
+        label_confusion: bool = False,
         class_id: int = -1
 ):
     if class_id != -1 and class_id not in TraceClass.get_ids():
         Logger.error(f"Class ID {class_id} does not exist. Computing stats for all categories instead.")
         class_id = -1
 
-    cot_test_case_results, non_cot_test_case_results = ResultLoader.load_two_runs(cot_results_path, non_cot_results_path)
-    ResultLoader.ensure_reasoning_present(cot_test_case_results)
+    cot_test_case_results, non_cot_test_case_results = TestCaseResultHelper.load_two_runs(cot_results_path, non_cot_results_path)
+    TestCaseResultHelper.ensure_reasoning_present(cot_test_case_results)
 
     if class_accuracy:
-        ClassAccuracy.compute_all(cot_test_case_results, non_cot_test_case_results, class_id)
+        ClassAccuracy.compute_all(
+            cot_test_case_results=cot_test_case_results,
+            non_cot_test_case_results=non_cot_test_case_results,
+            class_id=class_id
+        )
 
     if runs_match:
-        RunsMatch.compute_all(cot_test_case_results, non_cot_test_case_results, class_id)
+        RunsMatch.compute_all(
+            cot_test_case_results=cot_test_case_results,
+            non_cot_test_case_results=non_cot_test_case_results,
+            class_id=class_id
+        )
 
-    if not class_accuracy and not runs_match:
+    if label_confusion:
+        LabelConfusion.compute_all(
+            cot_test_case_results=cot_test_case_results,
+            non_cot_test_case_results=non_cot_test_case_results,
+            ignore_label_edge_cases=True,
+            analyze_run="cot"
+        )
+
+    if not class_accuracy and not runs_match and not label_confusion:
         Logger.info("Please select a metric to compute.")
 
 
