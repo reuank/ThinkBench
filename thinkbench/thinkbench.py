@@ -1,3 +1,4 @@
+import traceback
 from typing import List, Dict, Union
 
 import fire
@@ -69,6 +70,7 @@ class ThinkBench:
             test_case_results = ThinkBench.run_test_cases(arguments, inference_backend, storage_backend)
         except Exception as e:
             Logger.error(f"An error occurred during the benchmarking process: {e}")
+            Logger.error(traceback.format_exc())
         finally:
             Timer.get_instance("Run all").end(print_timer=True)
             if test_case_results:
