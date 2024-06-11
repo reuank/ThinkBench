@@ -12,6 +12,7 @@ from inference.inference_backend import InferenceBackend
 from trace_analysis.classification.classification_evaluator import ClassificationEvaluator
 from trace_analysis.classification.automatic_trace_classifier import AutomaticTraceClassifier, TraceClass
 from trace_analysis.classification.manual_trace_classifier import ManualTraceClassifier
+from trace_analysis.statistics.choice_prob import ChoiceProb
 from trace_analysis.statistics.class_accuracy import ClassAccuracy
 from trace_analysis.statistics.label_confusion import LabelConfusion
 from trace_analysis.statistics.runs_match import RunsMatch
@@ -168,13 +169,21 @@ def classify_traces_cli(
         ClassificationEvaluator.evaluate_classifications(complete_classifications)
 
 
-def analyze_trace_classes_cli(
+def analyze_cli(
         cot_results_path: str,
         non_cot_results_path: str,
+        class_id: int = -1,
+
+        # Analysis types
         class_accuracy: bool = False,
+
         runs_match: bool = False,
+
         label_confusion: bool = False,
-        class_id: int = -1
+        ignore_label_edge_cases: bool = True,
+        analyze_run: str = "cot",
+
+        choice_prob: bool = False
 ):
     if class_id != -1 and class_id not in TraceClass.get_ids():
         Logger.error(f"Class ID {class_id} does not exist. Computing stats for all categories instead.")
@@ -201,11 +210,18 @@ def analyze_trace_classes_cli(
         LabelConfusion.compute_all(
             cot_test_case_results=cot_test_case_results,
             non_cot_test_case_results=non_cot_test_case_results,
-            ignore_label_edge_cases=True,
-            analyze_run="cot"
+            ignore_label_edge_cases=ignore_label_edge_cases,
+            analyze_run=analyze_run
         )
 
-    if not class_accuracy and not runs_match and not label_confusion:
+    if choice_prob:
+        ChoiceProb.compute_all(
+            cot_test_case_results=cot_test_case_results,
+            non_cot_test_case_results=non_cot_test_case_results,
+            class_id=class_id
+        )
+
+    if not class_accuracy and not runs_match and not label_confusion and not choice_prob:
         Logger.info("Please select a metric to compute.")
 
 
@@ -221,5 +237,5 @@ if __name__ == '__main__':
     fire.Fire({
         'run-test': run_test_cli,
         'classify-traces': classify_traces_cli,
-        'analyze-classes': analyze_trace_classes_cli,
+        'analyze': analyze_cli,
     })

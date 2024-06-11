@@ -114,3 +114,26 @@ class TestCaseResultHelper:
     @staticmethod
     def get_correct_answers(test_case_result: Dict) -> List[str]:
         return [single_benchmark_result["correct_answer"] for single_benchmark_result in test_case_result["results"]]
+
+    @staticmethod
+    def get_question_ids_of_correct_model_choices(
+            test_case_result: TestCaseResult
+    ):
+        question_ids_of_correct_model_choices = []
+        for single_benchmark_result in test_case_result["results"]:
+            if single_benchmark_result["is_correct"]:
+                question_ids_of_correct_model_choices.append(single_benchmark_result["question_id"])
+
+        return question_ids_of_correct_model_choices
+
+    @staticmethod
+    def get_question_ids_of_incorrect_model_choices(
+            test_case_result: TestCaseResult
+    ):
+        question_ids_of_incorrect_model_choices = []
+
+        for single_benchmark_result in test_case_result["results"]:
+            if not single_benchmark_result["is_correct"]:
+                question_ids_of_incorrect_model_choices.append(single_benchmark_result["question_id"])
+
+        return question_ids_of_incorrect_model_choices

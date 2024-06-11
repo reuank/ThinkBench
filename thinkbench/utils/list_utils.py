@@ -28,3 +28,21 @@ def calculate_percentage_match(array_a, array_b):
 
 def float_list_to_percent(float_list: List[float]) -> List[str]:
     return [f"{value:.2%}" if isinstance(value, float) else value for value in float_list]
+
+
+def only_keep_indexes(from_list: List, indexes_to_keep: List[int]) -> List:
+    return [
+        item for idx, item in enumerate(from_list)
+        if idx in indexes_to_keep
+    ]
+
+
+def remove_indexes(from_list: List, indexes_to_remove: List[int]) -> List:
+    return [
+        item for idx, item in enumerate(from_list)
+        if idx not in indexes_to_remove
+    ]
+
+
+def list_intersection(list_1: List, list_2: List) -> List:
+    return list(set(list_1).intersection(set(list_2)))
