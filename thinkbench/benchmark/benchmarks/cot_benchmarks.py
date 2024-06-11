@@ -84,3 +84,13 @@ class CoTVariant1XMLBenchmark(CoTVariant1Benchmark):
         reasoning_completion_step.suffix = "\n</reasoning>\n"
 
         return reasoning_completion_step
+
+
+@BENCHMARK_REGISTRY.register("cot-variant-1-bracket")
+class CoTVariant1BracketBenchmark(CoTStandardBenchmark):
+    def get_prompt_parts(self) -> CoTPromptParts:
+        prompt_parts = super().get_prompt_parts()
+        prompt_parts.label_prompt_template = "Given this reasoning, the correct answer among labels "\
+                                             "{{ single_data_instance.answer_labels[0] }} through "\
+                                             "{{ single_data_instance.answer_labels[-1] }} is: \n\n("
+        return prompt_parts
