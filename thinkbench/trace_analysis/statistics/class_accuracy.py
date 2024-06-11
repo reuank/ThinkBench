@@ -2,18 +2,19 @@ from typing import Dict, Any, List
 
 from benchmark.results import TestCaseResult
 from trace_analysis.classification.trace_class import TraceClass
-from trace_analysis.classification.trace_classifier import TraceClassifier
+from trace_analysis.statistics.run_stat import RunStat
 from utils.list_utils import float_list_to_percent
 from utils.logger import Logger
 from utils.test_case_result_helper import TestCaseResultHelper
 
 
-class ClassAccuracy:
+class ClassAccuracy(RunStat):
     @staticmethod
     def compute_all(
             cot_test_case_results: List[TestCaseResult],
             non_cot_test_case_results: List[TestCaseResult],
-            class_id: int = -1
+            class_id: int = -1,
+            **kwargs
     ):
         class_ids = [class_id]
         if class_id == -1:
@@ -23,10 +24,11 @@ class ClassAccuracy:
             stat_table_rows = []
 
             for result_id in range(len(cot_test_case_results)):
-                question_ids_of_class = TraceClassifier.get_question_ids_of_class(
-                    class_id=class_id,
+                question_ids_of_class = RunStat.get_indexes_to_keep(
                     cot_test_case_result=cot_test_case_results[result_id],
-                    non_cot_test_case_result=non_cot_test_case_results[result_id]
+                    non_cot_test_case_result=non_cot_test_case_results[result_id],
+                    class_id=class_id,
+                    class_part="all_in_class"
                 )
 
                 complete_result = ClassAccuracy.compute(

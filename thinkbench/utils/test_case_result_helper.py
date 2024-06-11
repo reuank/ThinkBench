@@ -108,11 +108,50 @@ class TestCaseResultHelper:
         return [single_benchmark_result["model_choice"] for single_benchmark_result in test_case_result["results"]]
 
     @staticmethod
-    def get_model_choice_logprobs(test_case_result: TestCaseResult) -> List[Dict[str, float]]:
+    def get_completion_probs(test_case_result: TestCaseResult) -> List[Dict[str, float]]:
         return [single_result['completions'][0]['label']['logprobs'] for single_result in test_case_result["results"]]
 
     @staticmethod
-    def get_correct_answers(test_case_result: Dict) -> List[str]:
+    def get_model_choice_probs(test_case_result: TestCaseResult):
+        model_choices = TestCaseResultHelper.get_model_choices(test_case_result)
+        model_completion_probs = TestCaseResultHelper.get_completion_probs(test_case_result)
+
+        assert len(model_choices) == len(model_completion_probs)
+
+        model_choice_probs = []
+
+        for index in range(len(model_choices)):
+            # Try some variations of the label token
+            model_choice_prob = model_completion_probs[index].get(model_choices[index], 0.0)
+            if model_choice_prob == 0.0:
+                model_choice_prob = model_completion_probs[index].get(" " + model_choices[index], 0.0)
+            if model_choice_prob == 0.0:
+                model_choice_prob = model_completion_probs[index].get(model_choices[index] + " ", 0.0)
+            # if model_choice_prob == 0.0:
+            #     Logger.error(f"Could not extract label prob for question id {index}, "
+            #                  f"choice {model_choices[index]} and model {cot_test_case_result['model']}.")
+
+            model_choice_probs.append(model_choice_prob)
+
+        return model_choice_probs
+
+    @staticmethod
+    def get_label_completion_top_tokens(test_case_result: TestCaseResult) -> Dict[str, List[int]]:
+        top_tokens: Dict[str, List[int]] = {}
+
+        completion_probs_list = TestCaseResultHelper.get_completion_probs(test_case_result)
+
+        for completion_id, completion_probs in enumerate(completion_probs_list):
+            for token, prob in completion_probs.items():
+                if token in top_tokens.keys():
+                    top_tokens[token].append(completion_id)
+                else:
+                    top_tokens[token] = [completion_id]
+
+        return top_tokens
+
+    @staticmethod
+    def get_correct_answers(test_case_result: TestCaseResult) -> List[str]:
         return [single_benchmark_result["correct_answer"] for single_benchmark_result in test_case_result["results"]]
 
     @staticmethod

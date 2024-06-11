@@ -2,19 +2,23 @@ from typing import List
 
 from benchmark.results import TestCaseResult
 from storage.storage_backend import StorageBackend
+from trace_analysis.statistics.run_stat import RunStat
 from utils.logger import Logger
 from utils.plot import Plot
 
 
-class LabelConfusion:
+class LabelConfusion(RunStat):
     @staticmethod
     def compute_all(
             cot_test_case_results: List[TestCaseResult],
             non_cot_test_case_results: List[TestCaseResult],
-            ignore_label_edge_cases: bool = True,
-            analyze_run: str = "cot"
+            class_id: int = -1,
+            **kwargs
     ):
         Logger.info("Generating label confusion matrices for all results.")
+
+        ignore_label_edge_cases: bool = kwargs.get('ignore_label_edge_cases', True)
+        analyze_run: str = kwargs.get('analyze_run', 'non-cot')
 
         if analyze_run == "non-cot":
             analyzed_test_case_results = non_cot_test_case_results
@@ -59,7 +63,6 @@ class LabelConfusion:
             ignore_number_labels: bool = True,
             ignore_none: bool = True
     ) -> (List, List):
-        # Extract correct answers and model choices
         correct_answers = []
         model_choices = []
 
@@ -85,11 +88,5 @@ class LabelConfusion:
 
             correct_answers.append(single_benchmark_result['correct_answer'])
             model_choices.append(single_benchmark_result['model_choice'])
-
-        # Logger.print_seperator()
-        # Logger.info(f"Model: {test_case_result['model']}")
-        # Logger.info(f"Number of questions with label counts != 4: {odd_label_count}{' (ignored)' if ignore_odd_label_counts else ''}")
-        # Logger.info(f"Number of questions with number labels: {number_label_count}{' (ignored)' if ignore_number_labels else ''}")
-        # Logger.info(f"Number of questions with NONE labels: {none_count}{' (ignored)' if ignore_number_labels else ''}")
 
         return correct_answers, model_choices

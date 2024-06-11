@@ -16,6 +16,7 @@ from trace_analysis.statistics.choice_prob import ChoiceProb
 from trace_analysis.statistics.class_accuracy import ClassAccuracy
 from trace_analysis.statistics.label_confusion import LabelConfusion
 from trace_analysis.statistics.runs_match import RunsMatch
+from trace_analysis.statistics.top_tokens import TopTokens
 from utils.env_loader import EnvReader
 from utils.list_utils import ensure_list
 from utils.logger import Logger
@@ -183,7 +184,9 @@ def analyze_cli(
         ignore_label_edge_cases: bool = True,
         analyze_run: str = "cot",
 
-        choice_prob: bool = False
+        choice_prob: bool = False,
+
+        top_tokens: bool = False
 ):
     if class_id != -1 and class_id not in TraceClass.get_ids():
         Logger.error(f"Class ID {class_id} does not exist. Computing stats for all categories instead.")
@@ -221,7 +224,14 @@ def analyze_cli(
             class_id=class_id
         )
 
-    if not class_accuracy and not runs_match and not label_confusion and not choice_prob:
+    if top_tokens:
+        TopTokens.compute_all(
+            cot_test_case_results=cot_test_case_results,
+            non_cot_test_case_results=non_cot_test_case_results,
+            class_id=class_id
+        )
+
+    if not class_accuracy and not runs_match and not label_confusion and not choice_prob and not top_tokens:
         Logger.info("Please select a metric to compute.")
 
 

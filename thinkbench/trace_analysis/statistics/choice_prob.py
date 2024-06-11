@@ -4,30 +4,31 @@ from typing import List
 import numpy as np
 
 from benchmark.results import TestCaseResult
-from trace_analysis.classification.trace_classifier import TraceClassifier
-from utils.list_utils import only_keep_indexes, remove_indexes, list_intersection
+from trace_analysis.statistics.run_stat import RunStat
+from utils.list_utils import only_keep_indexes
 from utils.logger import Logger
 from utils.test_case_result_helper import TestCaseResultHelper
 
 
-class ChoiceProb:
+class ChoiceProb(RunStat):
     @staticmethod
     def compute_all(
             cot_test_case_results: List[TestCaseResult],
             non_cot_test_case_results: List[TestCaseResult],
-            class_id: int = -1
+            class_id: int = -1,
+            **kwargs
     ):
         cot_table_rows = []
         non_cot_table_rows = []
 
-        part_to_analyze = ["all_in_class", "correct_in_class", "incorrect_in_class"][2]
+        class_part = ["all_in_class", "correct_in_class", "incorrect_in_class"][2]
 
         for test_case_result_id, cot_test_case_result in enumerate(cot_test_case_results):
             cot_model_choice_probs, non_cot_model_choice_probs = ChoiceProb.compute(
                 cot_test_case_result=cot_test_case_result,
                 non_cot_test_case_result=non_cot_test_case_results[test_case_result_id],
                 class_id=class_id,
-                part_to_analyze=part_to_analyze
+                class_part=class_part
             )
 
             cot_table_rows.append(
@@ -46,12 +47,12 @@ class ChoiceProb:
 
         Logger.print_header(f"{cot_test_case_results[0]['benchmark_name']} Model Choice Probs (Dataset: {cot_test_case_results[0]['dataset_name']}, "
                             f"Class ID: {'all' if class_id == -1 else class_id}, "
-                            f"Subsection: {part_to_analyze.replace('_', ' ')})")
+                            f"Subsection: {class_part.replace('_', ' ')})")
         Logger.print_table(rows=cot_table_rows, headers=ChoiceProb.get_model_choice_prob_table_header())
 
         Logger.print_header(f"{non_cot_test_case_results[0]['benchmark_name']} Model Choice Probs (Dataset: {non_cot_test_case_results[0]['dataset_name']}, "
                             f"Class ID: {'all' if class_id == -1 else class_id}, "
-                            f"Subsection: {part_to_analyze.replace('_', ' ')})")
+                            f"Subsection: {class_part.replace('_', ' ')})")
         Logger.print_table(rows=non_cot_table_rows, headers=ChoiceProb.get_model_choice_prob_table_header())
 
     @staticmethod
@@ -59,73 +60,26 @@ class ChoiceProb:
             cot_test_case_result: TestCaseResult,
             non_cot_test_case_result: TestCaseResult,
             class_id: int = -1,
-            part_to_analyze: str = "all_in_class"
+            class_part: str = "all_in_class"
     ) -> (List[float], List[float]):
-        question_ids_of_class = TraceClassifier.get_question_ids_of_class(
-            class_id=class_id,
+        cot_indexes_to_keep, non_cot_indexes_to_keep = RunStat.get_indexes_to_keep(
             cot_test_case_result=cot_test_case_result,
-            non_cot_test_case_result=non_cot_test_case_result
+            non_cot_test_case_result=non_cot_test_case_result,
+            class_id=class_id,
+            class_part=class_part
         )
 
-        if part_to_analyze == "all_in_class":
-            cot_indexes_to_keep = question_ids_of_class
-            non_cot_indexes_to_keep = question_ids_of_class
-        elif part_to_analyze == "correct_in_class":
-            cot_indexes_to_keep = TestCaseResultHelper.get_question_ids_of_correct_model_choices(
-                test_case_result=cot_test_case_result
-            )
-
-            non_cot_indexes_to_keep = TestCaseResultHelper.get_question_ids_of_correct_model_choices(
-                test_case_result=non_cot_test_case_result
-            )
-        elif part_to_analyze == "incorrect_in_class":
-            cot_indexes_to_keep = TestCaseResultHelper.get_question_ids_of_incorrect_model_choices(
-                test_case_result=cot_test_case_result
-            )
-
-            non_cot_indexes_to_keep = TestCaseResultHelper.get_question_ids_of_incorrect_model_choices(
-                test_case_result=non_cot_test_case_result
-            )
-        else:
-            raise ValueError(f"Part to analyze {part_to_analyze} not defined.")
-
-        cot_indexes_to_keep = list_intersection(cot_indexes_to_keep, question_ids_of_class)
-        non_cot_indexes_to_keep = list_intersection(non_cot_indexes_to_keep, question_ids_of_class)
-
         cot_model_choice_probs = only_keep_indexes(
-            from_list=ChoiceProb.get_model_choice_probs(cot_test_case_result),
+            from_list=TestCaseResultHelper.get_model_choice_probs(cot_test_case_result),
             indexes_to_keep=cot_indexes_to_keep
         )
 
         non_cot_model_choice_probs = only_keep_indexes(
-            from_list=ChoiceProb.get_model_choice_probs(non_cot_test_case_result),
+            from_list=TestCaseResultHelper.get_model_choice_probs(non_cot_test_case_result),
             indexes_to_keep=non_cot_indexes_to_keep
         )
 
         return cot_model_choice_probs, non_cot_model_choice_probs
-
-    @staticmethod
-    def get_model_choice_probs(test_case_result: TestCaseResult):
-        model_choices = TestCaseResultHelper.get_model_choices(test_case_result)
-        model_completion_probs = TestCaseResultHelper.get_model_choice_logprobs(test_case_result)
-        assert len(model_choices) == len(model_completion_probs)
-
-        model_choice_probs = []
-
-        for index in range(len(model_choices)):
-            # Try some variations of the label token
-            model_choice_prob = model_completion_probs[index].get(model_choices[index], 0.0)
-            if model_choice_prob == 0.0:
-                model_choice_prob = model_completion_probs[index].get(" "+model_choices[index], 0.0)
-            if model_choice_prob == 0.0:
-                model_choice_prob = model_completion_probs[index].get(model_choices[index]+" ", 0.0)
-            # if model_choice_prob == 0.0:
-            #     Logger.error(f"Could not extract label prob for question id {index}, "
-            #                  f"choice {model_choices[index]} and model {cot_test_case_result['model']}.")
-
-            model_choice_probs.append(model_choice_prob)
-
-        return model_choice_probs
 
     @staticmethod
     def get_model_choice_prob_table_header():
