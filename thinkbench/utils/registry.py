@@ -97,21 +97,21 @@ class Registry:
         keys_with_flag = [k for k, v in self.flags.items() if v[flag] is True]
         return [self.registry[key] for key in keys_with_flag]
 
-    def get_single(self, name: str) -> RegistryItem:
+    def get_single(self, name: str) -> RegistryItem | List[RegistryItem]:
         self._load_all()
         if name == "default":
             return self.get_default()
+        elif name == "all":
+            return self.values()
+        elif "all-" in name:  # e.g. all-required
+            flag = name.split("-")[1]
+            return self.get_all_with_flag(flag)
         else:
             return self.get(name)
 
     def get_list(self, group: str | List[str]) -> List[RegistryItem]:
         self._load_all()
-        if group == "all":
-            return self.values()
-        elif "all-" in group:  # e.g. all-required
-            flag = group.split("-")[1]
-            return self.get_all_with_flag(flag)
-        elif group == "default" or isinstance(group, str):
+        if isinstance(group, str):
             return [self.get_single(group)]
         elif isinstance(group, List):
             return [self.get_single(name) for name in group]
