@@ -38,6 +38,13 @@ class NonCoTStandardBenchmark(NonCoTBenchmark):
                "{{ single_data_instance.answer_labels[-1] }}, the correct answer is: "
 
 
+@BENCHMARK_REGISTRY.register(name="non-cot-variant-1")
+class NonCoTVariant1Benchmark(NonCoTBenchmark):
+    def get_label_prompt(self) -> str:
+        return "Among {{ single_data_instance.answer_labels[0] }} through " \
+               "{{ single_data_instance.answer_labels[-1] }}, the correct answer is: \n("
+
+
 @BENCHMARK_REGISTRY.register("non-cot-explicit")
 class NonCoTExplicitInstructionBenchmark(NonCoTStandardBenchmark):
     def get_label_prompt(self) -> str:
