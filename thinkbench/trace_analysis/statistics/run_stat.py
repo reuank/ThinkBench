@@ -19,7 +19,7 @@ class RunStat(ABC):
         raise NotImplementedError
 
     @staticmethod
-    def get_indexes_to_keep(
+    def get_class_part_question_ids(
         cot_test_case_result: TestCaseResult,
         non_cot_test_case_result: TestCaseResult,
         class_id: int = -1,

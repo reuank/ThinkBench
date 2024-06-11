@@ -173,21 +173,21 @@ def classify_traces_cli(
 
 
 def analyze_cli(
+        # Common analysis parameters
         cot_results_path: str,
         non_cot_results_path: str,
         class_id: int = -1,
 
-        # Analysis types
-        class_accuracy: bool = False,
-
-        runs_match: bool = False,
-
-        label_confusion: bool = False,
+        # Special analysis parameters
         ignore_label_edge_cases: bool = True,
         analyze_run: str = "cot",
+        class_part: str = "all_in_class",
 
+        # Analysis types
+        class_accuracy: bool = False,
+        runs_match: bool = False,
+        label_confusion: bool = False,
         choice_prob: bool = False,
-
         top_tokens: bool = False
 ):
     if class_id != -1 and class_id not in TraceClass.get_ids():
@@ -223,14 +223,17 @@ def analyze_cli(
         ChoiceProb.compute_all(
             cot_test_case_results=cot_test_case_results,
             non_cot_test_case_results=non_cot_test_case_results,
-            class_id=class_id
+            class_id=class_id,
+            class_part=class_part
         )
 
     if top_tokens:
         TopTokens.compute_all(
             cot_test_case_results=cot_test_case_results,
             non_cot_test_case_results=non_cot_test_case_results,
-            class_id=class_id
+            class_id=class_id,
+            class_part=class_part,
+            analyze_run=analyze_run
         )
 
     if not class_accuracy and not runs_match and not label_confusion and not choice_prob and not top_tokens:

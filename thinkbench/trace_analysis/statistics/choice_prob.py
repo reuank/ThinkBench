@@ -21,7 +21,7 @@ class ChoiceProb(RunStat):
         cot_table_rows = []
         non_cot_table_rows = []
 
-        class_part = ["all_in_class", "correct_in_class", "incorrect_in_class"][2]
+        class_part: str = kwargs.get("class_part", "all_in_class")
 
         for test_case_result_id, cot_test_case_result in enumerate(cot_test_case_results):
             cot_model_choice_probs, non_cot_model_choice_probs = ChoiceProb.compute(
@@ -62,7 +62,7 @@ class ChoiceProb(RunStat):
             class_id: int = -1,
             class_part: str = "all_in_class"
     ) -> (List[float], List[float]):
-        cot_indexes_to_keep, non_cot_indexes_to_keep = RunStat.get_indexes_to_keep(
+        cot_indexes_to_keep, non_cot_indexes_to_keep = RunStat.get_class_part_question_ids(
             cot_test_case_result=cot_test_case_result,
             non_cot_test_case_result=non_cot_test_case_result,
             class_id=class_id,

@@ -50,7 +50,7 @@ class TopTokens(RunStat):
             class_id: int = -1,
             class_part: str = "all_in_class"
     ) -> (List, List):
-        cot_indexes_to_keep, non_cot_indexes_to_keep = RunStat.get_indexes_to_keep(
+        cot_indexes_to_keep, non_cot_indexes_to_keep = RunStat.get_class_part_question_ids(
             cot_test_case_result=cot_test_case_result,
             non_cot_test_case_result=non_cot_test_case_result,
             class_id=class_id,

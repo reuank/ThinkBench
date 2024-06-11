@@ -18,7 +18,7 @@ class RunsMatch(RunStat):
             **kwargs
     ):
         for result_id in range(len(cot_test_case_results)):
-            question_ids_of_class = RunStat.get_indexes_to_keep(
+            question_ids_of_class = RunStat.get_class_part_question_ids(
                 cot_test_case_result=cot_test_case_results[result_id],
                 non_cot_test_case_result=non_cot_test_case_results[result_id],
                 class_id=class_id,

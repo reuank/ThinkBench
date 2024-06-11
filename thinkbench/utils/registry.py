@@ -106,7 +106,6 @@ class Registry:
 
     def get_list(self, group: List[str]) -> List[RegistryItem]:
         self._load_all()
-        print(group)
         if group == ["all"]:
             return self.values()
         elif "all-" in group[0]:  # e.g. all-required
