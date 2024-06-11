@@ -101,18 +101,17 @@ class Registry:
         self._load_all()
         if name == "default":
             return self.get_default()
-        elif name == "all":
-            return self.values()
-        elif "all-" in name:  # e.g. all-required
-            flag = name.split("-")[1]
-            return self.get_all_with_flag(flag)
         else:
             return self.get(name)
 
-    def get_list(self, group: str | List[str]) -> List[RegistryItem]:
+    def get_list(self, group: List[str]) -> List[RegistryItem]:
         self._load_all()
-        if isinstance(group, str):
-            return [self.get_single(group)]
+        print(group)
+        if group == ["all"]:
+            return self.values()
+        elif "all-" in group[0]:  # e.g. all-required
+            flag = group[0].split("-")[1]
+            return self.get_all_with_flag(flag)
         elif isinstance(group, List):
             return [self.get_single(name) for name in group]
         else:

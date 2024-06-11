@@ -44,7 +44,7 @@ class TestArguments:
         self.model_configs = MODEL_CONFIG_REGISTRY.get_list(ensure_list(models))
         self.datasets = DATASET_REGISTRY.get_list(ensure_list(datasets))
         self.inference_backend = INFERENCE_BACKEND_REGISTRY.get_single(inference_backend)
-        self.benchmarks = BENCHMARK_REGISTRY.get_list(benchmarks)
+        self.benchmarks = BENCHMARK_REGISTRY.get_list(ensure_list(benchmarks))
         self.storage_backend = STORAGE_BACKEND_REGISTRY.get_single(storage)
         self.label_numbering = Numbering(labels)
         self.label_permutation = Permutation(permutation)
