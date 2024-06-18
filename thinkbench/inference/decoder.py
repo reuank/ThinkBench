@@ -35,10 +35,10 @@ class TemperatureDecoder(Decoder):
         self.temperature = temperature
 
 
-class TopPSamplingDecoder(Decoder):
-    def __init__(self, top_p: float, min_p: float):
+class NucleusDecoder(Decoder):
+    def __init__(self, top_p: float, min_p: float = 0.0):
         self.top_p = top_p
-        self.min_p = min_p
+        # self.min_p = min_p
 
 
 class TopKSamplingDecoder(Decoder):

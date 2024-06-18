@@ -8,7 +8,7 @@ from constants import DEFAULT_OPTIONAL_CONTEXT_TEMPLATE, DEFAULT_ANSWER_OPTION_T
     REASONING_MAX_TOKENS, REASONING_MAX_LOGPROBS
 from dataset.single_data_instance import SingleDataInstance
 from inference.completion import CompletionConfig
-from inference.decoder import GreedyDecoder, TemperatureDecoder
+from inference.decoder import GreedyDecoder, TemperatureDecoder, NucleusDecoder
 
 
 class CoTPromptParts:
@@ -72,6 +72,15 @@ class CoTVariant1TemperatureBenchmark(CoTVariant1Benchmark):
     def get_reasoning_completion_step(self) -> PromptCompletionStep:
         reasoning_completion_step = super().get_reasoning_completion_step()
         reasoning_completion_step.decoder = TemperatureDecoder(temperature=0.8)
+
+        return reasoning_completion_step
+
+
+@BENCHMARK_REGISTRY.register("cot-variant-1-nucleus")
+class CoTVariant1NucleusBenchmark(CoTVariant1Benchmark):
+    def get_reasoning_completion_step(self) -> PromptCompletionStep:
+        reasoning_completion_step = super().get_reasoning_completion_step()
+        reasoning_completion_step.decoder = NucleusDecoder(top_p=0.95)
 
         return reasoning_completion_step
 

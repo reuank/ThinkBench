@@ -19,7 +19,7 @@ from constants import COMPLETION_SEED, N_GPU_LAYERS, INFERENCE_BACKEND_VERBOSE, 
     DEFAULT_MODEL_PATH
 from dataset.single_data_instance import SingleDataInstance
 from inference.completion import CompletionConfig, CompletionResult, Choice, Logprobs, Usage
-from inference.decoder import Decoder, GreedyConstrainedDecoder, TemperatureDecoder, GreedyDecoder
+from inference.decoder import Decoder, GreedyConstrainedDecoder, TemperatureDecoder, GreedyDecoder, NucleusDecoder
 from inference.inference_backend import InferenceBackend, INFERENCE_BACKEND_REGISTRY
 from benchmark.testcase import TestCase
 from model_config.hf_model_config import HFModelConfig
@@ -194,6 +194,8 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
             samplers = ["temperature"]
         elif type(decoder) == TemperatureDecoder:
             samplers = ["temperature"]
+        elif type(decoder) == NucleusDecoder:
+            samplers = ["top_p"]
 
         if TOKENIZE_BEFORE:
             prompt = self.tokenize(prompt)
