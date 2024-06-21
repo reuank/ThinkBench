@@ -225,6 +225,9 @@ class LlamaCppServerInferenceBackend(InferenceBackend):
                 allowed_tokens.append(f"{allowed_token}")
                 allowed_tokens.append(f" {allowed_token}")
 
+            if not completion_response.choices[0].logprobs.top_logprobs:
+                completion_response.choices[0].logprobs.top_logprobs.append({"NONE": 1.0})
+
             tokens: Dict[str, float] = completion_response.choices[0].logprobs.top_logprobs[0]
             sorted_tokens = {k: v for k, v in sorted(tokens.items(), key=lambda item: item[1], reverse=True)}
             filtered_tokens = {k: v for k, v in filter(lambda item: item[0] in allowed_tokens, tokens.items())}
