@@ -55,6 +55,10 @@ class TestCaseResultHelper:
         if len(first_test_case_results) != len(second_test_case_results):
             raise ValueError("Number of files in the two dirs are not equal.")
 
+        for result_id, first_test_case_result in enumerate(first_test_case_results):
+            if len(first_test_case_result['results']) != len(second_test_case_results[result_id]['results']):
+                raise ValueError("Both runs have a different number of results.")
+
         first_models = [result["model"] for result in first_test_case_results]
         second_models = [result["model"] for result in second_test_case_results]
 
