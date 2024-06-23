@@ -45,12 +45,14 @@ class Logger:
         for test_case_result in test_case_results:
             table_rows.append([
                 test_case_result["model"],
-                f"{test_case_result['metrics']['accuracy']:.2f}",
+                test_case_result["dataset_name"],
+                test_case_result["benchmark_name"],
+                test_case_result['metrics']['accuracy'],
                 str(datetime.timedelta(seconds=test_case_result["execution_seconds"])).split(".")[0]  # trim ms
             ])
 
         Logger.print_header("Total Results")
-        Logger.print_table(table_rows, ["Model", "Accuracy (%)", "Execution time"])
+        Logger.print_table(table_rows, ["Model", "Dataset", "Benchmark", "Accuracy (%)", "Execution time"])
 
     @staticmethod
     def print_table(rows: List, headers: List, tablefmt: str = TABLE_FORMAT, print_out: bool = True):

@@ -3,7 +3,6 @@ from typing import List, Dict, Union
 
 import fire
 
-from constants import LIBRARY_ROOT
 from benchmark.testcase import TestCase
 from benchmark.results import TestCaseResult
 from dataset.dataset import Dataset
@@ -96,21 +95,26 @@ class ThinkBench:
             inference_backend.load_model_from_config(model_config)
 
             for dataset in arguments.datasets:
+                dataset = dataset()
+
                 if dataset.name not in cached_datasets.keys():
-                    cached_datasets[dataset.name] = dataset()
+                    cached_datasets[dataset.name] = dataset
                 else:
                     Logger.info(f"Dataset {dataset.name} was already loaded previously. Using cached version.")
 
                 dataset = cached_datasets[dataset.name]
 
                 for benchmark in arguments.benchmarks:
+                    benchmark = benchmark()
+                    Logger.info(f"Running benchmark {benchmark.name} on dataset {dataset.name}")
+
                     test_case: TestCase = TestCase(
                         dataset=dataset,
                         limit=arguments.limit,
                         n_random=arguments.n_random,
                         label_numbering=arguments.label_numbering,
                         label_permutation=arguments.label_permutation,
-                        benchmark=benchmark(),
+                        benchmark=benchmark,
                         use_chat_template=arguments.use_chat_template,
                     )
 
@@ -254,6 +258,7 @@ def analyze_cli(
 
 
 if __name__ == '__main__':
+    from constants import LIBRARY_ROOT
     from benchmark.benchmark import BENCHMARK_REGISTRY
     from dataset.dataset import DATASET_REGISTRY
     from inference.inference_backend import INFERENCE_BACKEND_REGISTRY
