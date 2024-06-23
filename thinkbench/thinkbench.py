@@ -16,6 +16,7 @@ from trace_analysis.classification.manual_trace_classifier import ManualTraceCla
 from trace_analysis.statistics.choice_prob import ChoiceProb
 from trace_analysis.statistics.class_accuracy import ClassAccuracy
 from trace_analysis.statistics.label_confusion import LabelConfusion
+from trace_analysis.statistics.label_probs import LabelProbs
 from trace_analysis.statistics.runs_match import RunsMatch
 from trace_analysis.statistics.top_tokens import TopTokens
 from utils.env_loader import EnvReader
@@ -146,18 +147,20 @@ def classify_traces_cli(
     cot_results_path: str,
     non_cot_results_path: str,
     evaluate: bool = True,
-    override: bool = False
+    override: bool = False,
+    skip_manual: bool = False,
 ):
     cot_test_case_results, non_cot_test_case_results = TestCaseResultHelper.load_two_runs(cot_results_path, non_cot_results_path)
     TestCaseResultHelper.ensure_reasoning_present(cot_test_case_results)
 
-    Logger.print_header("Manual Classification")
-    manual_classifications = ManualTraceClassifier.classify_test_case_results(
-        cot_test_case_results=cot_test_case_results,
-        non_cot_test_case_results=non_cot_test_case_results,
-        override=override
-    )
-    ManualTraceClassifier.store_classification_results(manual_classifications)
+    if not skip_manual:
+        Logger.print_header("Manual Classification")
+        manual_classifications = ManualTraceClassifier.classify_test_case_results(
+            cot_test_case_results=cot_test_case_results,
+            non_cot_test_case_results=non_cot_test_case_results,
+            override=override
+        )
+        ManualTraceClassifier.store_classification_results(manual_classifications)
 
     Logger.print_header("Automatic Classification")
     complete_classifications = AutomaticTraceClassifier.classify_test_case_results(
@@ -167,7 +170,7 @@ def classify_traces_cli(
     )
     AutomaticTraceClassifier.store_classification_results(complete_classifications)
 
-    if evaluate:
+    if evaluate and not skip_manual:
         Logger.print_header("Classification Evaluation")
         ClassificationEvaluator.evaluate_classifications(complete_classifications)
 
@@ -180,7 +183,7 @@ def analyze_cli(
 
         # Special analysis parameters
         ignore_label_edge_cases: bool = True,
-        analyze_run: str = "cot",
+        run: str = "cot",
         class_part: str = "all_in_class",
 
         # Analysis types
@@ -188,7 +191,8 @@ def analyze_cli(
         runs_match: bool = False,
         label_confusion: bool = False,
         choice_prob: bool = False,
-        top_tokens: bool = False
+        top_tokens: bool = False,
+        label_probs: bool = False
 ):
     if class_id != -1 and class_id not in TraceClass.get_ids():
         Logger.error(f"Class ID {class_id} does not exist. Computing stats for all categories instead.")
@@ -216,7 +220,7 @@ def analyze_cli(
             cot_test_case_results=cot_test_case_results,
             non_cot_test_case_results=non_cot_test_case_results,
             ignore_label_edge_cases=ignore_label_edge_cases,
-            analyze_run=analyze_run
+            run=run
         )
 
     if choice_prob:
@@ -233,10 +237,17 @@ def analyze_cli(
             non_cot_test_case_results=non_cot_test_case_results,
             class_id=class_id,
             class_part=class_part,
-            analyze_run=analyze_run
+            run=run
         )
 
-    if not class_accuracy and not runs_match and not label_confusion and not choice_prob and not top_tokens:
+    if label_probs:
+        LabelProbs.compute_all(
+            cot_test_case_results=cot_test_case_results,
+            non_cot_test_case_results=non_cot_test_case_results,
+            class_id=class_id,
+        )
+
+    if not class_accuracy and not runs_match and not label_confusion and not choice_prob and not top_tokens and not label_probs:
         Logger.info("Please select a metric to compute.")
 
 

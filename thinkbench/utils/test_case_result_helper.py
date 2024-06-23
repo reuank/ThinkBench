@@ -136,6 +136,25 @@ class TestCaseResultHelper:
         return model_choice_probs
 
     @staticmethod
+    def get_label_probs(test_case_result: TestCaseResult) -> List[Dict[str, float]]:
+        model_completion_probs = TestCaseResultHelper.get_completion_probs(test_case_result)
+
+        label_probs: Dict[int, Dict[str, float]] = {}
+
+        for single_benchmark_result_id, single_benchmark_result in enumerate(test_case_result["results"]):
+            label_probs[single_benchmark_result_id] = {}
+            label_completion = model_completion_probs[single_benchmark_result_id]
+
+            valid_label_tokens = single_benchmark_result["labels"]
+            valid_label_tokens.extend([" "+valid_label_token for valid_label_token in valid_label_tokens])
+
+            for valid_label_token in valid_label_tokens:
+                if valid_label_token in label_completion.keys():
+                    label_probs[single_benchmark_result_id][valid_label_token] = label_completion[valid_label_token]
+
+        return [probs for question_id, probs in label_probs.items()]
+
+    @staticmethod
     def get_label_completion_top_tokens(test_case_result: TestCaseResult) -> Dict[str, List[int]]:
         top_tokens: Dict[str, List[int]] = {}
 
