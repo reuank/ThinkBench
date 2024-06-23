@@ -58,18 +58,25 @@ class TestCase:
                 range(self.limit)]
 
     def get_info(self):
+        rows = [
+            ["Dataset", f"{self.dataset.name}"],
+            ["Benchmark", f"{self.benchmark.name}"],
+            ["Use Chat Template", f"{self.use_chat_template}"],
+        ]
+
+        if self.limit != -1:
+            rows.append(["Limit", f"{self.limit}"])
+        if self.n_random != -1:
+            rows.append(["Random Samples", f"{self.n_random if self.n_random != -1 else 'None'}"])
+            rows.append(["Random Seed", f"{self.random_seed if self.n_random != -1 else 'None'}"])
+        if self.label_numbering != Numbering.get_default():
+            rows.append(["Label Numbering", f"{self.label_numbering}"])
+        if self.label_permutation != Permutation.get_default():
+            rows.append(["Label Permutation", f"{self.label_permutation}"])
+
         table = Logger.print_table(
             headers=["Parameter", "Value"],
-            rows=[
-                ["Dataset", f"{self.dataset.name}"],
-                ["Limit", f"{self.limit}"],
-                ["Random Samples", f"{self.n_random if self.n_random != -1 else 'None'}"],
-                ["Random Seed", f"{self.random_seed if self.n_random != -1 else 'None'}"],
-                ["Label Numbering", f"{self.label_numbering}"],
-                ["Label Permutation", f"{self.label_permutation}"],
-                ["Benchmark", f"{self.benchmark.name}"],
-                ["Use Chat Template", f"{self.use_chat_template}"],
-            ],
+            rows=rows,
             print_out=False
         )
 

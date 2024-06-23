@@ -45,8 +45,8 @@ class Logger:
         for test_case_result in test_case_results:
             table_rows.append([
                 test_case_result["model"],
-                test_case_result["dataset_name"],
-                test_case_result["benchmark_name"],
+                test_case_result["dataset_name"].replace("Dataset", ""),
+                test_case_result["benchmark_name"].replace("Benchmark", ""),
                 test_case_result['metrics']['accuracy'],
                 str(datetime.timedelta(seconds=test_case_result["execution_seconds"])).split(".")[0]  # trim ms
             ])
