@@ -2,7 +2,7 @@ from typing import List
 
 from benchmark.results import TestCaseResult
 from storage.storage_backend import StorageBackend
-from trace_analysis.statistics.run_stat import RunStat
+from evaluation.statistics.run_stat import RunStat
 from utils.logger import Logger
 from utils.plot import Plot
 
@@ -18,9 +18,9 @@ class LabelConfusion(RunStat):
         Logger.info("Generating label confusion matrices for all results.")
 
         ignore_label_edge_cases: bool = kwargs.get('ignore_label_edge_cases', True)
-        analyze_run: str = kwargs.get('analyze_run', 'non-cot')
+        run: str = kwargs.get('run', 'cot')
 
-        if analyze_run == "non-cot":
+        if run == "non-cot":
             analyzed_test_case_results = non_cot_test_case_results
         else:
             analyzed_test_case_results = cot_test_case_results
@@ -29,8 +29,8 @@ class LabelConfusion(RunStat):
             correct_answers, model_choices = LabelConfusion.get_choices(
                 test_case_result=test_case_result,
                 ignore_none=ignore_label_edge_cases,
-                ignore_number_labels=ignore_label_edge_cases,
-                ignore_odd_label_counts=ignore_label_edge_cases
+                ignore_number_labels=True,
+                ignore_odd_label_counts=True
             )
 
             conf_matrix_file_name = StorageBackend.get_run_dependent_file_name(

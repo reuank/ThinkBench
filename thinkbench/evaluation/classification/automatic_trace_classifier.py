@@ -10,9 +10,9 @@ from tqdm import tqdm
 
 from benchmark.results import TestCaseResult, SingleBenchmarkResult
 from storage.backends.json_file_storage import JsonFileStorage
-from trace_analysis.classification.classification_result import ClassificationResult, SingleClassification
-from trace_analysis.classification.trace_class import TraceClass
-from trace_analysis.classification.trace_classifier import TraceClassifier
+from evaluation.classification.classification_result import ClassificationResult, SingleClassification
+from evaluation.classification.trace_class import TraceClass
+from evaluation.classification.trace_classifier import TraceClassifier
 from utils.logger import Logger
 
 

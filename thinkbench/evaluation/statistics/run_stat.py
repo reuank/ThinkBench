@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import List, Any
 
 from benchmark.results import TestCaseResult
-from trace_analysis.classification.trace_classifier import TraceClassifier
+from evaluation.classification.trace_classifier import TraceClassifier
 from utils.list_utils import list_intersection
 from utils.test_case_result_helper import TestCaseResultHelper
 

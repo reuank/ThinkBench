@@ -2,7 +2,7 @@ import statistics
 from typing import List
 
 from benchmark.results import TestCaseResult
-from trace_analysis.statistics.run_stat import RunStat
+from evaluation.statistics.run_stat import RunStat
 from utils.list_utils import only_keep_indexes
 from utils.logger import Logger
 from utils.test_case_result_helper import TestCaseResultHelper

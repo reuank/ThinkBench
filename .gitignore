@@ -4,3 +4,5 @@ results/
 examples/
 .env
 __pycache__
+docs/
+analysis/

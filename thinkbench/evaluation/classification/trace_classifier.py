@@ -5,8 +5,8 @@ from typing import Dict, List, Union
 from benchmark.results import TestCaseResult
 from constants import TRACE_SAMPLES_PER_RUN
 from storage.backends.json_file_storage import JsonFileStorage
-from trace_analysis.classification.classification_result import ClassificationResult, SingleClassification
-from trace_analysis.classification.trace_class import TraceClass
+from evaluation.classification.classification_result import ClassificationResult, SingleClassification
+from evaluation.classification.trace_class import TraceClass
 from utils.logger import Logger
 
 

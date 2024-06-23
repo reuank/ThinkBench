@@ -3,13 +3,13 @@ from typing import List, Dict, Any
 import numpy as np
 
 from benchmark.results import TestCaseResult
-from trace_analysis.statistics.run_stat import RunStat
+from evaluation.statistics.run_stat import RunStat
 from utils.list_utils import float_list_to_percent
 from utils.logger import Logger
 from utils.test_case_result_helper import TestCaseResultHelper
 
 
-class RunsMatch(RunStat):
+class RunComparison(RunStat):
     @staticmethod
     def compute_all(
             cot_test_case_results: List[TestCaseResult],
@@ -18,17 +18,17 @@ class RunsMatch(RunStat):
             **kwargs
     ):
         for result_id in range(len(cot_test_case_results)):
-            question_ids_of_class = RunStat.get_class_part_question_ids(
+            cot_question_ids_of_class, non_cot_question_ids_of_class = RunStat.get_class_part_question_ids(
                 cot_test_case_result=cot_test_case_results[result_id],
                 non_cot_test_case_result=non_cot_test_case_results[result_id],
                 class_id=class_id,
                 class_part="all_in_class"
             )
 
-            complete_result = RunsMatch.compute(
-                cot_result_file_data=cot_test_case_results[result_id],
-                non_cot_result_file_data=non_cot_test_case_results[result_id],
-                question_ids_of_class=question_ids_of_class
+            complete_result = RunComparison.compute(
+                cot_test_case_result=cot_test_case_results[result_id],
+                non_cot_test_case_result=non_cot_test_case_results[result_id],
+                question_ids_of_class=cot_question_ids_of_class
             )
 
             cot_epistemic_cost = complete_result["mismatches_non_cot_superior"]
@@ -54,11 +54,15 @@ class RunsMatch(RunStat):
             )
 
     @staticmethod
-    def compute(cot_result_file_data, non_cot_result_file_data, question_ids_of_class: List[int]) -> Dict[str, Any]:
-        correct_answers = TestCaseResultHelper.get_correct_answers(cot_result_file_data)
+    def compute(
+            cot_test_case_result: TestCaseResult,
+            non_cot_test_case_result: TestCaseResult,
+            question_ids_of_class: List[int]
+    ) -> Dict[str, Any]:
+        correct_answers = TestCaseResultHelper.get_correct_answers(cot_test_case_result)
 
-        cot_model_choices = TestCaseResultHelper.get_model_choices(cot_result_file_data)
-        non_cot_model_choices = TestCaseResultHelper.get_model_choices(non_cot_result_file_data)
+        cot_model_choices = TestCaseResultHelper.get_model_choices(cot_test_case_result)
+        non_cot_model_choices = TestCaseResultHelper.get_model_choices(non_cot_test_case_result)
 
         if len(cot_model_choices) != len(non_cot_model_choices):
             raise ValueError("Lengths don't match")
@@ -95,12 +99,12 @@ class RunsMatch(RunStat):
                     matches_incorrect_ids.append(index)
 
         runs_match_result = {
-            "model": cot_result_file_data["model"],
+            "model": cot_test_case_result["model"],
             "num_results": len(cot_model_choices),
-            "non_cot_uuid": non_cot_result_file_data["uuid"],
-            "cot_uuid": cot_result_file_data["uuid"],
-            "non_cot_accuracy": non_cot_result_file_data["metrics"]["accuracy"],
-            "cot_accuracy": cot_result_file_data["metrics"]["accuracy"],
+            "non_cot_uuid": non_cot_test_case_result["uuid"],
+            "cot_uuid": cot_test_case_result["uuid"],
+            "non_cot_accuracy": non_cot_test_case_result["metrics"]["accuracy"],
+            "cot_accuracy": cot_test_case_result["metrics"]["accuracy"],
             "matches": len(matches_ids),
             "matches_correct": len(matches_correct_ids),
             "matches_incorrect": len(matches_incorrect_ids),

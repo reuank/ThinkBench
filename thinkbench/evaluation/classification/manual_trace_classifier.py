@@ -3,9 +3,9 @@ from typing import List
 
 from benchmark.results import TestCaseResult
 from storage.backends.json_file_storage import JsonFileStorage
-from trace_analysis.classification.classification_result import ClassificationResult, SingleClassification
-from trace_analysis.classification.interactive_classifier import InteractiveClassifier
-from trace_analysis.classification.trace_classifier import TraceClassifier
+from evaluation.classification.classification_result import ClassificationResult, SingleClassification
+from evaluation.classification.interactive_classifier import InteractiveClassifier
+from evaluation.classification.trace_classifier import TraceClassifier
 from utils.cli_interactions import Interaction
 from utils.test_case_result_helper import TestCaseResultHelper
 

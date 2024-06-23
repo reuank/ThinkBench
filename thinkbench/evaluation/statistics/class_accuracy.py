@@ -1,8 +1,9 @@
 from typing import Dict, Any, List
 
 from benchmark.results import TestCaseResult
-from trace_analysis.classification.trace_class import TraceClass
-from trace_analysis.statistics.run_stat import RunStat
+from constants import PRINT_LATEX_SHORTCODES
+from evaluation.classification.trace_class import TraceClass
+from evaluation.statistics.run_stat import RunStat
 from utils.list_utils import float_list_to_percent
 from utils.logger import Logger
 from utils.test_case_result_helper import TestCaseResultHelper
@@ -23,8 +24,11 @@ class ClassAccuracy(RunStat):
         for class_id in class_ids:
             stat_table_rows = []
 
+            if PRINT_LATEX_SHORTCODES:
+                latex_shortcodes = ""
+
             for result_id in range(len(cot_test_case_results)):
-                question_ids_of_class = RunStat.get_class_part_question_ids(
+                cot_indexes_to_keep, non_cot_indexes_to_keep = RunStat.get_class_part_question_ids(
                     cot_test_case_result=cot_test_case_results[result_id],
                     non_cot_test_case_result=non_cot_test_case_results[result_id],
                     class_id=class_id,
@@ -34,7 +38,7 @@ class ClassAccuracy(RunStat):
                 complete_result = ClassAccuracy.compute(
                     cot_test_case_result=cot_test_case_results[result_id],
                     non_cot_test_case_result=non_cot_test_case_results[result_id],
-                    question_ids_of_class=question_ids_of_class
+                    question_ids_of_class=cot_indexes_to_keep
                 )
 
                 model = complete_result["model"]
@@ -43,6 +47,13 @@ class ClassAccuracy(RunStat):
                 ratio = complete_result["total_results_in_class"] / complete_result["total_results"]
 
                 stat_table_rows.append([model, non_cot_accuracy_in_class, cot_accuracy_in_class, ratio])
+
+                if PRINT_LATEX_SHORTCODES:
+                    for col in stat_table_rows[-1]:
+                        if type(col) == float:
+                            latex_shortcodes += "{"+f"{round(col * 100, 2, ):.2f}"+"}"
+
+            print(latex_shortcodes)
 
             Logger.print_header(f"Trace class accuracy stats, trace class: {'all' if class_id == -1 else class_id}")
             Logger.print_table(

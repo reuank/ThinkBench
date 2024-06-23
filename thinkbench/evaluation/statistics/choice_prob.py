@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 
 from benchmark.results import TestCaseResult
-from trace_analysis.statistics.run_stat import RunStat
+from evaluation.statistics.run_stat import RunStat
 from utils.list_utils import only_keep_indexes
 from utils.logger import Logger
 from utils.test_case_result_helper import TestCaseResultHelper
@@ -62,6 +62,9 @@ class ChoiceProb(RunStat):
             class_id: int = -1,
             class_part: str = "all_in_class"
     ) -> (List[float], List[float]):
+        cot_model_choice_probs = TestCaseResultHelper.get_model_choice_probs(cot_test_case_result)
+        non_cot_model_choice_probs = TestCaseResultHelper.get_model_choice_probs(non_cot_test_case_result)
+
         cot_indexes_to_keep, non_cot_indexes_to_keep = RunStat.get_class_part_question_ids(
             cot_test_case_result=cot_test_case_result,
             non_cot_test_case_result=non_cot_test_case_result,
@@ -70,12 +73,12 @@ class ChoiceProb(RunStat):
         )
 
         cot_model_choice_probs = only_keep_indexes(
-            from_list=TestCaseResultHelper.get_model_choice_probs(cot_test_case_result),
+            from_list=cot_model_choice_probs,
             indexes_to_keep=cot_indexes_to_keep
         )
 
         non_cot_model_choice_probs = only_keep_indexes(
-            from_list=TestCaseResultHelper.get_model_choice_probs(non_cot_test_case_result),
+            from_list=non_cot_model_choice_probs,
             indexes_to_keep=non_cot_indexes_to_keep
         )
 
@@ -83,7 +86,7 @@ class ChoiceProb(RunStat):
 
     @staticmethod
     def get_model_choice_prob_table_header():
-        return ["Model", "Average Label Prob", "Min Label Prob", "Max Label Prob", "10th Percentile", "90th Percentile"]
+        return ["Model", "Average Choice Prob", "Min Choice Prob", "Max Choice Prob", "10th Percentile", "90th Percentile"]
 
     @staticmethod
     def get_model_choice_prob_table_row(model_name: str, model_choice_probs: List[float]):

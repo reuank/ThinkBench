@@ -4,7 +4,7 @@ from typing import List
 
 from benchmark.results import TestCaseResult
 from constants import DEFAULT_OUTPUT_PATH
-from trace_analysis.classification.classification_result import ClassificationResult
+from evaluation.classification.classification_result import ClassificationResult
 from utils.env_loader import EnvReader
 from utils.registry import Registry
 

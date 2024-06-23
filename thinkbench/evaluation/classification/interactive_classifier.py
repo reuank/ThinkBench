@@ -2,8 +2,8 @@ import curses
 import textwrap
 from typing import List
 
-from trace_analysis.classification.classification_result import ClassificationResult
-from trace_analysis.classification.trace_class import TraceClass
+from evaluation.classification.classification_result import ClassificationResult
+from evaluation.classification.trace_class import TraceClass
 from utils.logger import Logger
 
 

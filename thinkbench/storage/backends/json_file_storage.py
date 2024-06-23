@@ -5,7 +5,7 @@ from pathlib import Path
 
 from storage.storage_backend import StorageBackend, STORAGE_BACKEND_REGISTRY
 from benchmark.results import TestCaseResult
-from trace_analysis.classification.classification_result import ClassificationResult, SingleClassification
+from evaluation.classification.classification_result import ClassificationResult, SingleClassification
 from utils.encoders import TotalResultEncoder
 from utils.logger import Logger
 

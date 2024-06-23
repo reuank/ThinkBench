@@ -10,15 +10,15 @@ from dataset.dataset import Dataset
 from dataset.single_data_instance import Numbering, Permutation
 from inference.backends.llama_cpp_server_backend import LlamaCppServerInferenceBackend
 from inference.inference_backend import InferenceBackend
-from trace_analysis.classification.classification_evaluator import ClassificationEvaluator
-from trace_analysis.classification.automatic_trace_classifier import AutomaticTraceClassifier, TraceClass
-from trace_analysis.classification.manual_trace_classifier import ManualTraceClassifier
-from trace_analysis.statistics.choice_prob import ChoiceProb
-from trace_analysis.statistics.class_accuracy import ClassAccuracy
-from trace_analysis.statistics.label_confusion import LabelConfusion
-from trace_analysis.statistics.label_probs import LabelProbs
-from trace_analysis.statistics.runs_match import RunsMatch
-from trace_analysis.statistics.top_tokens import TopTokens
+from evaluation.classification.classification_evaluator import ClassificationEvaluator
+from evaluation.classification.automatic_trace_classifier import AutomaticTraceClassifier, TraceClass
+from evaluation.classification.manual_trace_classifier import ManualTraceClassifier
+from evaluation.statistics.choice_prob import ChoiceProb
+from evaluation.statistics.class_accuracy import ClassAccuracy
+from evaluation.statistics.label_confusion import LabelConfusion
+from evaluation.statistics.label_probs import LabelProbs
+from evaluation.statistics.runs_match import RunComparison
+from evaluation.statistics.top_tokens import TopTokens
 from utils.env_loader import EnvReader
 from utils.list_utils import ensure_list
 from utils.logger import Logger
@@ -209,7 +209,7 @@ def analyze_cli(
         )
 
     if runs_match:
-        RunsMatch.compute_all(
+        RunComparison.compute_all(
             cot_test_case_results=cot_test_case_results,
             non_cot_test_case_results=non_cot_test_case_results,
             class_id=class_id

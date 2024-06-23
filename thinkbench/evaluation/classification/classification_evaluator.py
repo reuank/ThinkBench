@@ -4,9 +4,9 @@ from typing import Dict, List
 from storage.backends.csv_file_storage import CsvFileStorage
 from storage.backends.json_file_storage import JsonFileStorage
 from storage.storage_backend import StorageBackend
-from trace_analysis.classification.classification_result import ClassificationResult, SingleClassification
-from trace_analysis.classification.trace_class import TraceClass
-from trace_analysis.classification.trace_classifier import TraceClassifier
+from evaluation.classification.classification_result import ClassificationResult, SingleClassification
+from evaluation.classification.trace_class import TraceClass
+from evaluation.classification.trace_classifier import TraceClassifier
 from utils.list_utils import calculate_percentage_match
 from utils.logger import Logger
 from utils.plot import Plot
@@ -57,9 +57,11 @@ class ClassificationEvaluator:
                 true_classes=manual_class_ids,
                 automatic_classes=automatic_class_ids,
                 all_classes=TraceClass.get_ids(),
-                x_label="Automatic Trace Classes",
-                y_label="Manual Trace Classes",
-                title=f"Confusion Matrix for model {classification_result['model']}",
+                x_label="Automatic Trace Class",
+                y_label="Manual Trace Class",
+                title=f"Trace Classification Confusion Matrix for: {classification_result['model']}, "
+                      f"{classification_results[0]['dataset_name']}, "
+                      f"{classification_results[0]['cot_benchmark_name']}",
                 conf_matrix_file_name=conf_matrix_file_name,
                 sub_folder="classification_confusion"
             )
@@ -76,7 +78,7 @@ class ClassificationEvaluator:
 
         # TODO: Get analysis path from env, not from storage
         conf_matrix_file_name = StorageBackend.get_run_dependent_file_name(
-            model_name="_all_models",
+            model_name="_all-models",
             cot_uuid=str(int(time.time() / 100)),
             non_cot_uuid="###",
             benchmark_name=classification_results[0]["cot_benchmark_name"],
@@ -90,9 +92,11 @@ class ClassificationEvaluator:
             true_classes=all_classifications["all_manual_class_ids"],
             automatic_classes=all_classifications["all_automatic_class_ids"],
             all_classes=TraceClass.get_ids(),
-            x_label="Automatic Trace Classes",
-            y_label="Manual Trace Classes",
-            title="Confusion Matrix for all models",
+            x_label="Automatic Trace Class",
+            y_label="Manual Trace Class",
+            title=f"Trace Classification Confusion Matrix for: All Models, "
+                  f"{classification_results[0]['dataset_name']}, "
+                  f"{classification_results[0]['cot_benchmark_name']}",
             conf_matrix_file_name=conf_matrix_file_name,
             sub_folder="classification_confusion"
         )

@@ -70,3 +70,6 @@ CSV_DELIMITER: str = ","
 DEFAULT_THINKBENCH_PATH: str = "~/.thinkbench"
 DEFAULT_OUTPUT_PATH: str = DEFAULT_THINKBENCH_PATH + "/results"
 DEFAULT_MODEL_PATH: str = DEFAULT_THINKBENCH_PATH + "/models"
+
+# Plot options
+BIG_PLOTS: bool = True
