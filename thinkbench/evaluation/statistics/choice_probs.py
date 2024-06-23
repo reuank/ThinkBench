@@ -10,7 +10,7 @@ from utils.logger import Logger
 from utils.test_case_result_helper import TestCaseResultHelper
 
 
-class ChoiceProb(RunStat):
+class ChoiceProbs(RunStat):
     @staticmethod
     def compute_all(
             cot_test_case_results: List[TestCaseResult],
@@ -24,7 +24,7 @@ class ChoiceProb(RunStat):
         class_part: str = kwargs.get("class_part", "all_in_class")
 
         for test_case_result_id, cot_test_case_result in enumerate(cot_test_case_results):
-            cot_model_choice_probs, non_cot_model_choice_probs = ChoiceProb.compute(
+            cot_model_choice_probs, non_cot_model_choice_probs = ChoiceProbs.compute(
                 cot_test_case_result=cot_test_case_result,
                 non_cot_test_case_result=non_cot_test_case_results[test_case_result_id],
                 class_id=class_id,
@@ -32,14 +32,14 @@ class ChoiceProb(RunStat):
             )
 
             cot_table_rows.append(
-                ChoiceProb.get_model_choice_prob_table_row(
+                ChoiceProbs.get_model_choice_prob_table_row(
                     model_name=cot_test_case_result["model"],
                     model_choice_probs=cot_model_choice_probs
                 )
             )
 
             non_cot_table_rows.append(
-                ChoiceProb.get_model_choice_prob_table_row(
+                ChoiceProbs.get_model_choice_prob_table_row(
                     model_name=cot_test_case_result["model"],
                     model_choice_probs=non_cot_model_choice_probs
                 )
@@ -48,12 +48,12 @@ class ChoiceProb(RunStat):
         Logger.print_header(f"{cot_test_case_results[0]['benchmark_name']} Model Choice Probs (Dataset: {cot_test_case_results[0]['dataset_name']}, "
                             f"Class ID: {'all' if class_id == -1 else class_id}, "
                             f"Subsection: {class_part.replace('_', ' ')})")
-        Logger.print_table(rows=cot_table_rows, headers=ChoiceProb.get_model_choice_prob_table_header())
+        Logger.print_table(rows=cot_table_rows, headers=ChoiceProbs.get_model_choice_prob_table_header())
 
         Logger.print_header(f"{non_cot_test_case_results[0]['benchmark_name']} Model Choice Probs (Dataset: {non_cot_test_case_results[0]['dataset_name']}, "
                             f"Class ID: {'all' if class_id == -1 else class_id}, "
                             f"Subsection: {class_part.replace('_', ' ')})")
-        Logger.print_table(rows=non_cot_table_rows, headers=ChoiceProb.get_model_choice_prob_table_header())
+        Logger.print_table(rows=non_cot_table_rows, headers=ChoiceProbs.get_model_choice_prob_table_header())
 
     @staticmethod
     def compute(

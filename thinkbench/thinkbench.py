@@ -3,28 +3,30 @@ from typing import List, Dict, Union
 
 import fire
 
+from constants import LIBRARY_ROOT
 from benchmark.testcase import TestCase
 from benchmark.results import TestCaseResult
-from constants import LIBRARY_ROOT
 from dataset.dataset import Dataset
 from dataset.single_data_instance import Numbering, Permutation
 from inference.backends.llama_cpp_server_backend import LlamaCppServerInferenceBackend
 from inference.inference_backend import InferenceBackend
-from evaluation.classification.classification_evaluator import ClassificationEvaluator
-from evaluation.classification.automatic_trace_classifier import AutomaticTraceClassifier, TraceClass
-from evaluation.classification.manual_trace_classifier import ManualTraceClassifier
-from evaluation.statistics.choice_prob import ChoiceProb
-from evaluation.statistics.class_accuracy import ClassAccuracy
-from evaluation.statistics.label_confusion import LabelConfusion
-from evaluation.statistics.label_probs import LabelProbs
-from evaluation.statistics.runs_match import RunComparison
-from evaluation.statistics.top_tokens import TopTokens
+from storage.storage_backend import StorageBackend
 from utils.env_loader import EnvReader
 from utils.list_utils import ensure_list
 from utils.logger import Logger
 from utils.test_case_result_helper import TestCaseResultHelper
 from utils.timer import Timer
-from storage.storage_backend import StorageBackend
+
+from evaluation.classification.classification_evaluator import ClassificationEvaluator
+from evaluation.classification.automatic_trace_classifier import AutomaticTraceClassifier, TraceClass
+from evaluation.classification.manual_trace_classifier import ManualTraceClassifier
+
+from evaluation.statistics.choice_probs import ChoiceProbs
+from evaluation.statistics.class_accuracy import ClassAccuracy
+from evaluation.statistics.label_confusion import LabelConfusion
+from evaluation.statistics.label_probs import LabelProbs
+from evaluation.statistics.run_comparison import RunComparison
+from evaluation.statistics.top_tokens import TopTokens
 
 
 class TestArguments:
@@ -188,9 +190,9 @@ def analyze_cli(
 
         # Analysis types
         class_accuracy: bool = False,
-        runs_match: bool = False,
+        run_comparison: bool = False,
         label_confusion: bool = False,
-        choice_prob: bool = False,
+        choice_probs: bool = False,
         top_tokens: bool = False,
         label_probs: bool = False
 ):
@@ -208,7 +210,7 @@ def analyze_cli(
             class_id=class_id
         )
 
-    if runs_match:
+    if run_comparison:
         RunComparison.compute_all(
             cot_test_case_results=cot_test_case_results,
             non_cot_test_case_results=non_cot_test_case_results,
@@ -223,8 +225,8 @@ def analyze_cli(
             run=run
         )
 
-    if choice_prob:
-        ChoiceProb.compute_all(
+    if choice_probs:
+        ChoiceProbs.compute_all(
             cot_test_case_results=cot_test_case_results,
             non_cot_test_case_results=non_cot_test_case_results,
             class_id=class_id,
@@ -247,7 +249,7 @@ def analyze_cli(
             class_id=class_id,
         )
 
-    if not class_accuracy and not runs_match and not label_confusion and not choice_prob and not top_tokens and not label_probs:
+    if not class_accuracy and not run_comparison and not label_confusion and not choice_probs and not top_tokens and not label_probs:
         Logger.info("Please select a metric to compute.")
 
 
