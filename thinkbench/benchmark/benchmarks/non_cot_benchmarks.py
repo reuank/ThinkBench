@@ -38,13 +38,6 @@ class NonCoTStandardBenchmark(NonCoTBenchmark):
                "{{ single_data_instance.answer_labels[-1] }}, the correct answer is: "
 
 
-@BENCHMARK_REGISTRY.register(name="non-cot-standard-bracket")
-class NonCoTStandardBracketBenchmark(NonCoTBenchmark):
-    def get_label_prompt(self) -> str:
-        return "Among {{ single_data_instance.answer_labels[0] }} through " \
-               "{{ single_data_instance.answer_labels[-1] }}, the correct answer is: \n("
-
-
 @BENCHMARK_REGISTRY.register(name="non-cot-variant-1")
 class NonCoTVariant1Benchmark(NonCoTBenchmark):
     def get_label_prompt(self) -> str:
@@ -52,8 +45,15 @@ class NonCoTVariant1Benchmark(NonCoTBenchmark):
                "{{ single_data_instance.answer_labels[-1] }}, the correct answer is: \n\n"
 
 
-@BENCHMARK_REGISTRY.register("non-cot-explicit")
-class NonCoTExplicitInstructionBenchmark(NonCoTStandardBenchmark):
+@BENCHMARK_REGISTRY.register(name="non-cot-variant-2")
+class NonCoTVariant2Benchmark(NonCoTBenchmark):
+    def get_label_prompt(self) -> str:
+        return "Among {{ single_data_instance.answer_labels[0] }} through " \
+               "{{ single_data_instance.answer_labels[-1] }}, the correct answer is: \n\n("
+
+
+@BENCHMARK_REGISTRY.register("non-cot-variant-3")
+class NonCoTVariant3Benchmark(NonCoTStandardBenchmark):
     def get_label_prompt(self) -> str:
         return "Just answer with the correct label, e.g. with {{ single_data_instance.answer_labels[0]}} " \
                "if answer {{ single_data_instance.answer_labels[0] }} is correct.\n" \

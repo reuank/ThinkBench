@@ -95,8 +95,8 @@ class CoTVariant1XMLBenchmark(CoTVariant1Benchmark):
         return reasoning_completion_step
 
 
-@BENCHMARK_REGISTRY.register("cot-variant-1-bracket")
-class CoTVariant1BracketBenchmark(CoTStandardBenchmark):
+@BENCHMARK_REGISTRY.register("cot-variant-2")
+class CoTVariant2Benchmark(CoTStandardBenchmark):
     def get_prompt_parts(self) -> CoTPromptParts:
         prompt_parts = super().get_prompt_parts()
         prompt_parts.label_prompt_template = "Given this reasoning, the correct answer among labels "\
