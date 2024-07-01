@@ -7,6 +7,7 @@ from benchmark.testcase import TestCase
 from benchmark.results import TestCaseResult
 from dataset.dataset import Dataset
 from dataset.single_data_instance import Numbering, Permutation
+from evaluation.statistics.generation_stats import GenerationStats
 from inference.backends.llama_cpp_server_backend import LlamaCppServerInferenceBackend
 from inference.inference_backend import InferenceBackend
 from storage.storage_backend import StorageBackend
@@ -198,7 +199,8 @@ def analyze_cli(
         label_confusion: bool = False,
         choice_probs: bool = False,
         top_tokens: bool = False,
-        label_probs: bool = False
+        label_probs: bool = False,
+        generation_stats: bool = False
 ):
     if class_id != -1 and class_id not in TraceClass.get_ids():
         Logger.error(f"Class ID {class_id} does not exist. Computing stats for all categories instead.")
@@ -253,7 +255,15 @@ def analyze_cli(
             class_id=class_id,
         )
 
-    if not class_accuracy and not run_comparison and not label_confusion and not choice_probs and not top_tokens and not label_probs:
+    if generation_stats:
+        GenerationStats.compute_all(
+            cot_test_case_results=cot_test_case_results,
+            non_cot_test_case_results=non_cot_test_case_results,
+            class_id=class_id,
+        )
+
+    if not class_accuracy and not run_comparison and not label_confusion and not choice_probs and not top_tokens \
+            and not label_probs and not generation_stats:
         Logger.info("Please select a metric to compute.")
 
 
